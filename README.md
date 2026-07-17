@@ -94,6 +94,13 @@ python3 run.py
 - Ambient particles: Dust, Fireflies, Mist
 - Stars and moon
 
+### Natural Disasters (V2.2)
+- 15 disasters: Earthquake, Tornado, Tsunami, Sandstorm, Blizzard, Volcanic Eruption, Wildfire, Whirlpool, Meteor Strike, Sinkhole, Avalanche, Mudslide, Ice Storm, Flash Flood, Lightning Barrage
+- Biome-specific triggers (desert gets sandstorms, ocean gets tsunamis)
+- Chain events (earthquake can trigger tsunami, lightning can trigger wildfire)
+- Screen shake with intensity scaling
+- HUD warning with disaster name and timer
+
 ### Technical
 - 25+ procedural sound effects (no audio files)
 - Procedural texture generation (no image files for blocks)
@@ -104,7 +111,7 @@ python3 run.py
 
 ## Architecture
 
-28 Python source files, ~10,000+ lines of code.
+33 Python source files, ~12,000+ lines of code.
 
 ```
 run.py                  Entry point
@@ -121,6 +128,8 @@ furnace_ui.py           Furnace smelting UI
 sounds.py               Procedural sound generation
 terminal.py             Console commands
 atmosphere.py           Weather, particles, sky rendering
+physics.py              Explosions, fluid sim, wind, falling blocks
+disasters.py            15 natural disasters with chain events
 circuits.py             Electronics simulation
 factory.py              Electronics factory structure
 structures.py           World structures
@@ -131,9 +140,12 @@ world_screens.py        World selection/creation
 multiplayer_screens.py  Host/join screens
 credits.py              Credits screen
 text_renderer.py        OpenGL text rendering
+pixel_font.py           Pixel font rendering
 obj_loader.py           OBJ model loading
 builder.py              Structure builder tool
 world_manager.py        Save/load management
+settings_manager.py     Per-world settings
+io_system.py            IO trigger system
 minecraft.py            Legacy single-file version
 ```
 

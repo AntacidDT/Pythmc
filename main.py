@@ -3,9 +3,8 @@
 Pythmc - Minecraft Clone
 Main orchestrator - ties all systems together
 
-V1.9 - The General Update
-  Block drops, item pickup, hunger overhaul, food, armor, furnace,
-  diamond tier, player body, third-person camera
+V2.2 - Natural Disasters
+  15 disasters with biome rules, chain events, screen shake, and visual effects
 
 Controls:
   WASD - Move | Space - Jump | Shift - Descend (fly) | Ctrl - Sprint
@@ -51,6 +50,7 @@ from furnace_ui import FurnaceUI
 from settings_manager import settings_manager
 from io_system import io_manager
 from physics import PhysicsManager
+from disasters import DisasterManager
 import world_manager
 
 
@@ -115,6 +115,7 @@ class Game:
         self.clouds = None
         self.hud = None
         self.atmosphere = None
+        self.disaster_manager = None
 
         self.sensitivity = settings_manager.get("screen", "sensitivity")
         self.day_time = 0.25
@@ -207,6 +208,8 @@ class Game:
 
         pcx, pcz = self.world.world_to_chunk(int(self.player.pos[0]), int(self.player.pos[2]))
         self.physics.init(self.world, pcx, pcz)
+
+        self.disaster_manager = DisasterManager()
 
     def _apply_setting(self, category, key, value):
         """Apply a setting value to the game."""
@@ -730,6 +733,14 @@ class Game:
                 self.world.chunks[(cx, cz)].mesh_dirty = True
                 self.world.dirty_chunks.add((cx, cz))
 
+        # V2.2: Disaster update
+        if self.disaster_manager:
+            rain_int_val = rain_int
+            self.disaster_manager.update(
+                dt, self.world, self.player.pos,
+                self.world.seed, rain_int_val)
+            self.disaster_manager.apply_chain_dirtying()
+
         pcx, pcz = self.world.world_to_chunk(int(self.player.pos[0]), int(self.player.pos[2]))
         self.world.update(pcx, pcz)
 
@@ -776,20 +787,29 @@ class Game:
         gluPerspective(70, SCREEN_W / SCREEN_H, 0.1, 1000.0)
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
+
+        # V2.2: Disaster screen shake
+        shake_x, shake_y = 0.0, 0.0
+        if self.disaster_manager and self.disaster_manager.active_disaster:
+            shake_amt = self.disaster_manager.screen_shake
+            if shake_amt > 0:
+                shake_x = (random.random() - 0.5) * shake_amt * 0.05
+                shake_y = (random.random() - 0.5) * shake_amt * 0.05
         
         if self.player.third_person:
             # Third-person camera
             cam_dist = 4.0
             ry = math.radians(self.player.yaw)
-            cam_x = self.player.pos[0] + math.sin(ry) * cam_dist
-            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.0
+            cam_x = self.player.pos[0] + math.sin(ry) * cam_dist + shake_x
+            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.0 + shake_y
             cam_z = self.player.pos[2] + math.cos(ry) * cam_dist
             look = self.player.pos + np.array([0, PLAYER_HEIGHT * 0.8, 0])
             gluLookAt(cam_x, cam_y, cam_z, look[0], look[1], look[2], 0, 1, 0)
         else:
             eye = self.player.get_eye_pos()
             look = eye + self.player.get_forward()
-            gluLookAt(eye[0], eye[1], eye[2], look[0], look[1], look[2], 0, 1, 0)
+            gluLookAt(eye[0] + shake_x, eye[1] + shake_y, eye[2],
+                      look[0] + shake_x, look[1] + shake_y, look[2], 0, 1, 0)
 
         # Sky
         if self.atmosphere:
@@ -864,6 +884,12 @@ class Game:
             "placed": self.blocks_placed_session,
         }
         self.hud.draw(self.player, stats=stats)
+
+        # V2.2: Disaster warning HUD
+        if self.disaster_manager:
+            dinfo = self.disaster_manager.get_disaster_info()
+            if dinfo:
+                self._draw_disaster_hud(dinfo)
 
         # Crafting UI
         self.crafting_ui.draw(self.player.inventory)
@@ -952,6 +978,47 @@ class Game:
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
 
+    def _draw_disaster_hud(self, info):
+        """Draw disaster warning HUD at top-center of screen."""
+        glDisable(GL_LIGHTING)
+        glDisable(GL_DEPTH_TEST)
+
+        name = info["name"]
+        intensity = info["intensity"]
+        timer = info["timer"]
+
+        # Pulsing red tint based on intensity
+        pulse = 0.6 + 0.4 * math.sin(time.time() * 4)
+        r = min(1.0, 0.8 + intensity * 0.2)
+        g = max(0.0, 0.2 - intensity * 0.15)
+        b = 0.1
+
+        # Warning bar at top
+        bar_h = 30
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glColor4f(r, g, b, 0.5 * pulse)
+        glBegin(GL_QUADS)
+        glVertex2f(0, SCREEN_H)
+        glVertex2f(SCREEN_W, SCREEN_H)
+        glVertex2f(SCREEN_W, SCREEN_H - bar_h)
+        glVertex2f(0, SCREEN_H - bar_h)
+        glEnd()
+        glDisable(GL_BLEND)
+
+        # Disaster name
+        text_renderer.draw_text_shadow(
+            SCREEN_W // 2 - 60, SCREEN_H - 22,
+            f"!! {name} !!", "small", (1, 0.9, 0.2))
+
+        # Timer
+        text_renderer.draw_text_shadow(
+            SCREEN_W // 2 - 30, SCREEN_H - 40,
+            f"{timer:.1f}s", "small", (1, 1, 1))
+
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_LIGHTING)
+
     def _draw_other_players(self):
         if not multiplayer.is_connected():
             return
@@ -982,7 +1049,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.1 - Better Physics")
+        print("  V2.2 - Natural Disasters")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -1015,7 +1082,7 @@ class Game:
                     tp = "[TP]" if self.player.third_person else ""
                     mobs = f"Mobs:{len(self.entity_manager.entities)}"
                     px, py, pz = self.player.pos
-                    caption = f"Pythmc V2.1 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                    caption = f"Pythmc V2.2 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                     pygame.display.set_caption(caption)
 
             elif self.state == GameState.PAUSED:

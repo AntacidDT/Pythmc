@@ -2,7 +2,7 @@
 
 **Full name:** Pythmc (Python Minecraft)
 **Engine:** Pythkernel
-**Version:** V2.1 - Better Physics
+**Version:** V2.2 - Natural Disasters
 **Language:** Python 3
 **Graphics:** PyOpenGL (immediate mode)
 **Audio:** Pygame mixer
@@ -1430,6 +1430,32 @@ MCbyMimo/
 - Well generation
 - Garden generation
 - Structure builder tool with JSON export
+
+### V2.2 - Natural Disasters Update
+- 15 natural disasters with biome-specific triggers
+- Chain event system (earthquake->tsunami, lightning->wildfire, meteor->volcanic)
+- Screen shake with intensity scaling
+- Disaster warning HUD with name and timer
+- DisasterManager for cooldowns and active disaster tracking
+- DisasterRenderer integration with camera offset
+
+### V2.1 - Better Physics Update
+- Explosion system with radius, hardness-based destruction, entity damage
+- Falling block entities (explosion debris) with physics
+- Fluid simulation (water/lava spread, wind-affected)
+- Wind system (direction, gusts, affects fluids+particles+rain)
+- Block gravity (sand/gravel fall)
+- TNT and Obsidian blocks
+- Lava damage and swim physics
+- New biome blocks: Podzol, Mycelium, Sponge, Glowstone
+
+### V2.0 - Settings & IO Update
+- Pixel font rendering
+- Settings manager (physics/world/screen)
+- IO trigger system (13 trigger types)
+- World creation UI with tabbed settings
+- Stats display on world select
+- Session stat tracking
 
 ### V1.2 - The Cave Update
 - 3D Perlin noise cave generation

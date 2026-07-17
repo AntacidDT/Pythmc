@@ -1,4 +1,4 @@
-"""Pythmc - Constants and Block Types - V2.1 Better Physics"""
+"""Pythmc - Constants and Block Types - V2.2 Natural Disasters"""
 
 # ─── Screen ──────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 1280, 720

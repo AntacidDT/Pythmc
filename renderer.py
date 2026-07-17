@@ -1,4 +1,4 @@
-"""Pythmc - Renderer, HUD, and Visual Effects - V2.3"""
+"""Pythmc - Renderer, HUD, and Visual Effects - V2.4"""
 
 import math
 import random
@@ -7,6 +7,21 @@ from text_renderer import text_renderer
 from textures import texture_manager
 from OpenGL.GLU import *
 from constants import *
+
+
+def get_character_colors():
+    """Load character body part colors from settings."""
+    from settings_manager import settings_manager
+    def _c(rk, gk, bk):
+        return (settings_manager.get("appearance", rk) / 255.0,
+                settings_manager.get("appearance", gk) / 255.0,
+                settings_manager.get("appearance", bk) / 255.0)
+    return {
+        "skin": _c("skin_r", "skin_g", "skin_b"),
+        "shirt": _c("shirt_r", "shirt_g", "shirt_b"),
+        "pants": _c("pants_r", "pants_g", "pants_b"),
+        "eyes": _c("eyes_r", "eyes_g", "eyes_b"),
+    }
 
 
 class Particle:
@@ -160,19 +175,20 @@ class HUD:
                 if slot.count > 1:
                     text_renderer.draw_text(bx + 24, sy + 4, str(slot.count), size="medium", color=(1.0, 1.0, 1.0))
 
-        # Selected item name
+        # Survival HUD (health, armor, hunger) - above hotbar
+        if not player.creative:
+            armor = player.get_armor_defense()
+            self._draw_health_bar(sx, sy + 60, player)
+            if armor > 0:
+                self._draw_armor_bar(sx, sy + 76, armor)
+            self._draw_hunger_bar(sx + 200, sy + 60, player)
+
+        # Selected item name - above survival HUD
         selected_slot = player.inventory.hotbar[player.selected_slot]
         if not selected_slot.is_empty():
             name = ITEM_NAMES.get(selected_slot.item, "")
-            text_renderer.draw_text(sx, sy + 45, name, size="medium", color=(1.0, 1.0, 1.0))
-
-        # Survival HUD (health, armor, hunger)
-        if not player.creative:
-            armor = player.get_armor_defense()
-            self._draw_health_bar(sx, sy + 50, player)
-            if armor > 0:
-                self._draw_armor_bar(sx, sy + 66, armor)
-            self._draw_hunger_bar(sx + 200, sy + 50, player)
+            name_y = sy + 95 if not player.creative else sy + 45
+            text_renderer.draw_text(sx, name_y, name, size="medium", color=(1.0, 1.0, 1.0))
 
         # V2.0: Stats display (top right)
         if stats:
@@ -330,7 +346,7 @@ class HUD:
         glDisable(GL_BLEND)
 
 
-def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False):
+def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None):
     """Draw player body with head, body, arms, legs and armor overlay."""
     glPushMatrix()
     glTranslatef(x, y, z)
@@ -342,10 +358,17 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     arm_w, arm_h = 0.25, 0.75
     leg_w, leg_h = 0.25, 0.75
     
-    # Skin colors
-    skin = (0.90, 0.75, 0.60)
-    shirt = (0.20, 0.50, 0.80)
-    pants = (0.30, 0.30, 0.60)
+    # Skin colors (from settings or defaults)
+    if colors:
+        skin = colors.get("skin", (0.90, 0.75, 0.60))
+        shirt = colors.get("shirt", (0.20, 0.50, 0.80))
+        pants = colors.get("pants", (0.30, 0.30, 0.60))
+        eye_color = colors.get("eyes", (0.1, 0.3, 0.6))
+    else:
+        skin = (0.90, 0.75, 0.60)
+        shirt = (0.20, 0.50, 0.80)
+        pants = (0.30, 0.30, 0.60)
+        eye_color = (0.1, 0.3, 0.6)
     
     def _draw_cube(x1, y1, z1, x2, y2, z2, color):
         glColor3f(*color)
@@ -394,9 +417,12 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
         w2, h2, d2 = (x2-x1)*s/2, (y2-y1)*s/2, (z2-z1)*s/2
         _draw_cube(cx-w2, cy-h2, cz-d2, cx+w2, cy+h2, cz+d2, color)
     
-    head_y = 1.62
-    body_y = 0.87
-    arm_y = 1.12
+    # Sneak offset: lower entire body slightly
+    sneak_y = -0.2 if is_sneaking else 0.0
+    
+    head_y = 1.62 + sneak_y
+    body_y = 0.87 + sneak_y
+    arm_y = 1.12 + sneak_y
     leg_y = 0.0
     
     # Left leg
@@ -459,7 +485,7 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     glEnd()
     
     # Pupils
-    glColor3f(0.1, 0.3, 0.6)
+    glColor3f(*eye_color)
     pupil_z = eye_z - 0.001
     glBegin(GL_QUADS)
     glVertex3f(-0.13, eye_y + 0.01, pupil_z)
@@ -473,6 +499,100 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     glEnd()
     
     glPopMatrix()
+
+
+def draw_first_person_hand(player, screen_w, screen_h):
+    """Draw the player's hand and held block in first-person view."""
+    glDisable(GL_LIGHTING)
+    glDisable(GL_FOG)
+    glDisable(GL_DEPTH_TEST)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(0, screen_w, 0, screen_h, -1, 1)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    # Hand bob when walking
+    bob = 0
+    if player.on_ground and not player.flying:
+        speed = abs(player.velocity[0]) + abs(player.velocity[2])
+        if speed > 0.5:
+            bob = math.sin(player.walk_cycle * 2) * 6
+    elif player.in_water:
+        bob = math.sin(player.walk_cycle * 1.5) * 4
+
+    # Eat animation
+    eat_lift = 0
+    if player.eating:
+        eat_progress = min(1.0, player.eat_timer / player.eat_duration)
+        eat_lift = math.sin(eat_progress * math.pi) * 40
+
+    hand_x = screen_w - 90 + bob * 0.3
+    hand_y = -40 + abs(bob) * 0.5 + eat_lift
+
+    # Arm (skin-colored rectangle)
+    colors = get_character_colors()
+    skin = colors.get("skin", (0.90, 0.75, 0.60))
+    glColor4f(skin[0], skin[1], skin[2], 0.95)
+    # Upper arm
+    glBegin(GL_QUADS)
+    glVertex2f(hand_x - 8, hand_y)
+    glVertex2f(hand_x + 16, hand_y)
+    glVertex2f(hand_x + 16, hand_y + 70)
+    glVertex2f(hand_x - 8, hand_y + 70)
+    glEnd()
+    # Hand
+    glColor4f(skin[0] * 0.95, skin[1] * 0.95, skin[2] * 0.95, 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(hand_x - 6, hand_y + 70)
+    glVertex2f(hand_x + 14, hand_y + 70)
+    glVertex2f(hand_x + 14, hand_y + 90)
+    glVertex2f(hand_x - 6, hand_y + 90)
+    glEnd()
+
+    # Held block on top of hand
+    held_item = player.hotbar[player.selected_slot]
+    if held_item and held_item in ITEM_COLORS:
+        c = ITEM_COLORS[held_item][1]
+        bx = hand_x + 2
+        by = hand_y + 86
+        bs = 18  # block size
+        # Front face
+        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.95)
+        glBegin(GL_QUADS)
+        glVertex2f(bx, by)
+        glVertex2f(bx + bs, by)
+        glVertex2f(bx + bs, by + bs)
+        glVertex2f(bx, by + bs)
+        glEnd()
+        # Top face (lighter)
+        glColor4f(c[0], c[1], c[2], 0.95)
+        glBegin(GL_QUADS)
+        glVertex2f(bx - 4, by + bs)
+        glVertex2f(bx + bs - 4, by + bs)
+        glVertex2f(bx + bs - 4, by + bs + 6)
+        glVertex2f(bx - 4, by + bs + 6)
+        glEnd()
+        # Right face (darker)
+        glColor4f(c[0] * 0.6, c[1] * 0.6, c[2] * 0.6, 0.95)
+        glBegin(GL_QUADS)
+        glVertex2f(bx + bs, by)
+        glVertex2f(bx + bs + 4, by + 6)
+        glVertex2f(bx + bs + 4, by + bs + 6)
+        glVertex2f(bx + bs, by + bs)
+        glEnd()
+
+    glDisable(GL_BLEND)
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+    glEnable(GL_DEPTH_TEST)
 
 
 def draw_target_block(hit, face_verts):

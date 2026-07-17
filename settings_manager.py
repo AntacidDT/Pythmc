@@ -38,6 +38,12 @@ DEFAULTS = {
     "gpu": {
         "cuda_enabled": False,
     },
+    "appearance": {
+        "skin_r": 230, "skin_g": 191, "skin_b": 153,
+        "shirt_r": 51, "shirt_g": 128, "shirt_b": 204,
+        "pants_r": 77, "pants_g": 77, "pants_b": 153,
+        "eyes_r": 26, "eyes_g": 77, "eyes_b": 153,
+    },
 }
 
 # Ranges for clamping values
@@ -73,6 +79,12 @@ RANGES = {
     "gpu": {
         "cuda_enabled": (0, 1),
     },
+    "appearance": {
+        "skin_r": (0, 255), "skin_g": (0, 255), "skin_b": (0, 255),
+        "shirt_r": (0, 255), "shirt_g": (0, 255), "shirt_b": (0, 255),
+        "pants_r": (0, 255), "pants_g": (0, 255), "pants_b": (0, 255),
+        "eyes_r": (0, 255), "eyes_g": (0, 255), "eyes_b": (0, 255),
+    },
 }
 
 # Display names for UI
@@ -107,6 +119,12 @@ DISPLAY_NAMES = {
     },
     "gpu": {
         "cuda_enabled": "NVIDIA CUDA",
+    },
+    "appearance": {
+        "skin_r": "Skin Red", "skin_g": "Skin Green", "skin_b": "Skin Blue",
+        "shirt_r": "Shirt Red", "shirt_g": "Shirt Green", "shirt_b": "Shirt Blue",
+        "pants_r": "Pants Red", "pants_g": "Pants Green", "pants_b": "Pants Blue",
+        "eyes_r": "Eyes Red", "eyes_g": "Eyes Green", "eyes_b": "Eyes Blue",
     },
 }
 

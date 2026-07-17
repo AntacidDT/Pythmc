@@ -618,23 +618,15 @@ class PixelFont:
                     pygame.draw.rect(surface, color, (x, y, ps, ps))
         return surface
 
-    def _get_texture(self, text, size="medium", color=(255, 255, 255)):
-        """Get or create a texture for text."""
-        cache_key = (text, size, color)
-        if cache_key in self.cache:
-            return self.cache[cache_key]
-
-        scale = {"small": 1, "medium": 2, "large": 3, "title": 4}.get(size, 2)
-        ps = scale
-        spacing = max(1, scale - 1)
-
+    def _build_text_surface(self, text, ps, color):
+        """Build a pygame surface with text rendered using bitmap glyph data."""
+        spacing = max(1, ps - 1)
         total_w = 0
         for ch in text:
             data = GLYPH_DATA.get(ch.upper(), GLYPH_DATA[' '])
             total_w += len(data[0]) * ps + spacing
         total_w -= spacing
         total_h = self.char_height * ps
-
         if total_w <= 0:
             total_w = 1
 
@@ -643,7 +635,6 @@ class PixelFont:
         for ch in text:
             data = GLYPH_DATA.get(ch.upper(), GLYPH_DATA[' '])
             glyph_w = len(data[0]) * ps
-            glyph_h = len(data) * ps
             for row_i, row in enumerate(data):
                 for col_i, pixel in enumerate(row):
                     if pixel == '1':
@@ -651,6 +642,30 @@ class PixelFont:
                         ry = row_i * ps
                         pygame.draw.rect(surface, color, (rx, ry, ps, ps))
             x_off += glyph_w + spacing
+        return surface
+
+    def _get_texture(self, text, size="medium", color=(255, 255, 255), outline=False):
+        """Get or create a texture for text, optionally with 1px outline."""
+        cache_key = (text, size, color, outline)
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        scale = {"small": 1, "medium": 2, "large": 3, "title": 4}.get(size, 2)
+        ps = scale
+
+        surface = self._build_text_surface(text, ps, color)
+
+        if outline:
+            outline_surf = self._build_text_surface(text, ps, (0, 0, 0))
+            ow, oh = outline_surf.get_size()
+            padded = pygame.Surface((ow + 2, oh + 2), pygame.SRCALPHA)
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    padded.blit(outline_surf, (1 + dx, 1 + dy))
+            padded.blit(surface, (1, 1))
+            surface = padded
 
         w, h = surface.get_size()
         raw = pygame.image.tostring(surface, "RGBA", True)
@@ -664,12 +679,12 @@ class PixelFont:
         self.cache[cache_key] = (tex, w, h)
         return tex, w, h
 
-    def draw_text(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0)):
-        """Draw text at position."""
+    def draw_text(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0), outline=True):
+        """Draw text at position, optionally with outline."""
         if not self.ready or not text:
             return 0
         c255 = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
-        tex, w, h = self._get_texture(text, size, c255)
+        tex, w, h = self._get_texture(text, size, c255, outline=outline)
 
         glEnable(GL_TEXTURE_2D)
         glEnable(GL_BLEND)
@@ -688,27 +703,27 @@ class PixelFont:
         glDisable(GL_BLEND)
         return w
 
-    def draw_text_centered(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0)):
+    def draw_text_centered(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0), outline=True):
         """Draw text centered at position."""
         c255 = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
-        _, w, h = self._get_texture(text, size, c255)
-        self.draw_text(x - w // 2, y, text, size, color)
+        _, w, h = self._get_texture(text, size, c255, outline=outline)
+        self.draw_text(x - w // 2, y, text, size, color, outline=outline)
 
     def draw_text_shadow(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0), shadow=(0.0, 0.0, 0.0)):
         """Draw text with drop shadow."""
-        self.draw_text(x + 2, y - 2, text, size, shadow)
-        self.draw_text(x, y, text, size, color)
+        self.draw_text(x + 2, y - 2, text, size, shadow, outline=False)
+        self.draw_text(x, y, text, size, color, outline=True)
 
     def draw_text_centered_shadow(self, x, y, text, size="medium", color=(1.0, 1.0, 1.0), shadow=(0.0, 0.0, 0.0)):
         """Draw centered text with drop shadow."""
         c255 = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
-        _, w, _ = self._get_texture(text, size, c255)
+        _, w, _ = self._get_texture(text, size, c255, outline=True)
         self.draw_text_shadow(x - w // 2, y, text, size, color, shadow)
 
-    def get_text_width(self, text, size="medium"):
+    def get_text_width(self, text, size="medium", outline=True):
         """Get text width."""
         c255 = (255, 255, 255)
-        _, w, _ = self._get_texture(text, size, c255)
+        _, w, _ = self._get_texture(text, size, c255, outline=outline)
         return w
 
     def get_text_height(self, size="medium"):

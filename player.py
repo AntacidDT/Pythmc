@@ -52,6 +52,9 @@ class Player:
         self.walk_cycle = 0.0
         self.arm_swing = 0.0
         
+        # Sneaking
+        self.sneaking = False
+        
         # Eating
         self.eating = False
         self.eat_timer = 0.0
@@ -81,7 +84,8 @@ class Player:
         return np.array([-math.cos(ry), 0, math.sin(ry)])
 
     def get_eye_pos(self):
-        return self.pos + np.array([0, PLAYER_HEIGHT, 0])
+        height = PLAYER_HEIGHT - (0.25 if self.sneaking else 0)
+        return self.pos + np.array([0, height, 0])
 
     def _check_in_water(self):
         eye = self.get_eye_pos()
@@ -173,6 +177,10 @@ class Player:
         self.in_water = self._check_in_water()
         self.in_lava = self._check_in_lava()
         self.sprinting = keys.get(K_LCTRL, False) and not self.in_water and not self.in_lava
+        
+        # Sneaking: Shift on ground when not flying
+        self.sneaking = (keys.get(K_LSHIFT, False) and self.on_ground
+                         and not self.flying and not self.in_water and not self.in_lava)
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
         if self.hurt_timer > 0:
@@ -212,6 +220,8 @@ class Player:
             speed = SWIM_SPEED
         elif self.sprinting:
             speed = SPRINT_SPEED
+        elif self.sneaking:
+            speed = WALK_SPEED * 0.4
         else:
             speed = WALK_SPEED
 
@@ -264,6 +274,24 @@ class Player:
 
         new_pos = self.pos + self.velocity * dt
         new_pos = self._check_collision(new_pos)
+
+        # Sneaking edge protection: prevent walking off blocks
+        if self.sneaking and new_pos[1] <= self.pos[1] + 0.01:
+            hw = PLAYER_WIDTH / 2
+            has_support = False
+            for dx in [-hw, 0, hw]:
+                for dz in [-hw, 0, hw]:
+                    bx = int(math.floor(new_pos[0] + dx))
+                    bz = int(math.floor(new_pos[2] + dz))
+                    by = int(math.floor(self.pos[1] - 0.1))
+                    if self.world.get_block(bx, by, bz) in SOLID_BLOCKS:
+                        has_support = True
+                        break
+                if has_support:
+                    break
+            if not has_support:
+                new_pos[0] = self.pos[0]
+                new_pos[2] = self.pos[2]
 
         if new_pos[1] < self.pos[1] and not self.flying and not self.in_water and not self.in_lava:
             self.fall_distance += self.pos[1] - new_pos[1]

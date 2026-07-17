@@ -81,6 +81,9 @@ class WorldSelectScreen:
         self.time = 0
         self.result = None
         self.confirm_delete = None
+        self.cam_yaw = 0
+        self.bg_world = None
+        self.bg_world_loaded = False
         self._update_buttons()
 
     def _update_buttons(self):
@@ -91,6 +94,16 @@ class WorldSelectScreen:
         self.back_btn = Button(cx + 10, 25, 150, 45, "Back", (0.35, 0.35, 0.35), (0.5, 0.5, 0.5))
         self.confirm_yes = Button(cx - 80, self.screen_h // 2, 70, 40, "Yes", (0.5, 0.2, 0.2), (0.7, 0.3, 0.3))
         self.confirm_no = Button(cx + 10, self.screen_h // 2, 70, 40, "No", (0.25, 0.5, 0.25), (0.35, 0.7, 0.35))
+
+    def _ensure_bg_world(self):
+        if self.bg_world_loaded:
+            return
+        from world import World
+        self.bg_world = World(seed=42)
+        for cx in range(-2, 3):
+            for cz in range(-2, 3):
+                self.bg_world.get_chunk(cx, cz)
+        self.bg_world_loaded = True
 
     def refresh(self):
         self.worlds = list_worlds()
@@ -145,6 +158,7 @@ class WorldSelectScreen:
 
     def update(self, dt, mouse_pos):
         self.time += dt
+        self.cam_yaw += dt * 4
         mx, my = mouse_pos
         my = self.screen_h - my
         if not self.confirm_delete:
@@ -157,10 +171,50 @@ class WorldSelectScreen:
             self.confirm_no.hovered = self.confirm_no.contains(mx, my)
 
     def draw(self):
-        glDisable(GL_LIGHTING)
-        glDisable(GL_FOG)
-        glDisable(GL_DEPTH_TEST)
+        self._ensure_bg_world()
 
+        # 3D world background
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glEnable(GL_DEPTH_TEST)
+        glClearColor(0.45, 0.55, 0.75, 1.0)
+
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        gluPerspective(60, self.screen_w / self.screen_h, 0.1, 500.0)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+
+        cam_x = math.cos(math.radians(self.cam_yaw)) * 35
+        cam_z = math.sin(math.radians(self.cam_yaw)) * 35
+        cam_y = 28 + math.sin(self.time * 0.2) * 2
+        gluLookAt(cam_x, cam_y, cam_z, 0, 18, 0, 0, 1, 0)
+
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.5, 1.0))
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.9, 0.85, 0.8, 1.0))
+        glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.3, 0.0))
+
+        if self.bg_world:
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz).draw_opaque()
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz).draw_transparent()
+
+        glDisable(GL_LIGHTING)
+        glDisable(GL_DEPTH_TEST)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+
+        # 2D overlay
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -169,11 +223,12 @@ class WorldSelectScreen:
         glPushMatrix()
         glLoadIdentity()
 
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glColor4f(0, 0, 0, 0.3)
         glBegin(GL_QUADS)
-        glColor3f(0.06, 0.06, 0.1)
         glVertex2f(0, 0)
         glVertex2f(self.screen_w, 0)
-        glColor3f(0.1, 0.12, 0.18)
         glVertex2f(self.screen_w, self.screen_h)
         glVertex2f(0, self.screen_h)
         glEnd()
@@ -311,6 +366,9 @@ class WorldCreateScreen:
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.time = 0
+        self.cam_yaw = 0
+        self.bg_world = None
+        self.bg_world_loaded = False
 
         self.world_name = "New World"
         self.gamemode = "survival"
@@ -345,6 +403,16 @@ class WorldCreateScreen:
                 SETTING_TAB_LABELS[tab_key],
                 (0.2, 0.25, 0.4), (0.3, 0.35, 0.55)
             ))
+
+    def _ensure_bg_world(self):
+        if self.bg_world_loaded:
+            return
+        from world import World
+        self.bg_world = World(seed=42)
+        for cx in range(-2, 3):
+            for cz in range(-2, 3):
+                self.bg_world.get_chunk(cx, cz)
+        self.bg_world_loaded = True
 
     def _get_setting_items(self):
         """Get list of (key, display_name, value, default, range) for active tab."""
@@ -474,6 +542,7 @@ class WorldCreateScreen:
 
     def update(self, dt, mouse_pos):
         self.time += dt
+        self.cam_yaw += dt * 4
         mx, my = mouse_pos
         my = self.screen_h - my
 
@@ -490,10 +559,50 @@ class WorldCreateScreen:
             tab_btn.hovered = tab_btn.contains(mx, my)
 
     def draw(self):
-        glDisable(GL_LIGHTING)
-        glDisable(GL_FOG)
-        glDisable(GL_DEPTH_TEST)
+        self._ensure_bg_world()
 
+        # 3D world background
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glEnable(GL_DEPTH_TEST)
+        glClearColor(0.45, 0.55, 0.75, 1.0)
+
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        gluPerspective(60, self.screen_w / self.screen_h, 0.1, 500.0)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+
+        cam_x = math.cos(math.radians(self.cam_yaw)) * 35
+        cam_z = math.sin(math.radians(self.cam_yaw)) * 35
+        cam_y = 28 + math.sin(self.time * 0.2) * 2
+        gluLookAt(cam_x, cam_y, cam_z, 0, 18, 0, 0, 1, 0)
+
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.5, 1.0))
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.9, 0.85, 0.8, 1.0))
+        glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.3, 0.0))
+
+        if self.bg_world:
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz).draw_opaque()
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz).draw_transparent()
+
+        glDisable(GL_LIGHTING)
+        glDisable(GL_DEPTH_TEST)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+
+        # 2D overlay
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -502,12 +611,12 @@ class WorldCreateScreen:
         glPushMatrix()
         glLoadIdentity()
 
-        # Background
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glColor4f(0, 0, 0, 0.3)
         glBegin(GL_QUADS)
-        glColor3f(0.06, 0.06, 0.1)
         glVertex2f(0, 0)
         glVertex2f(self.screen_w, 0)
-        glColor3f(0.1, 0.12, 0.18)
         glVertex2f(self.screen_w, self.screen_h)
         glVertex2f(0, self.screen_h)
         glEnd()

@@ -3,11 +3,12 @@
 Pythmc - Minecraft Clone
 Main orchestrator - ties all systems together
 
-V2.2 - Natural Disasters
-  15 disasters with biome rules, chain events, screen shake, and visual effects
+V2.4 - The Better Quality Update
+  Font outline, character customization, 3D menu backgrounds, first-person hand,
+  multiplayer name tags, sneaking mechanic, HUD fixes
 
 Controls:
-  WASD - Move | Space - Jump | Shift - Descend (fly) | Ctrl - Sprint
+  WASD - Move | Space - Jump | Shift - Sneak (ground) / Descend (fly) | Ctrl - Sprint
   Mouse Look | Left Click - Break/Attack | Right Click - Place/Use
   1-9 - Select Hotbar Slot | F - Toggle Fly (Creative) | / - Terminal (if cheats)
   G - Freeze Time | F11 - Fullscreen | Esc - Pause Menu | R - Respawn
@@ -30,9 +31,9 @@ from entities import EntityManager, ItemDrop
 from renderer import (
     ParticleSystem, CloudRenderer, HUD,
     draw_target_block, update_sky, init_gl, draw_player_body,
-    draw_falling_blocks
+    draw_falling_blocks, get_character_colors, draw_first_person_hand
 )
-from menu import MainMenu, PauseMenu, SettingsMenu
+from menu import MainMenu, PauseMenu, SettingsMenu, CharacterCustomizationScreen
 from inventory_ui import CraftingUI
 from text_renderer import text_renderer
 from textures import texture_manager
@@ -66,6 +67,7 @@ class GameState:
     BUILDER = "builder"
     HOST_GAME = "host_game"
     JOIN_GAME = "join_game"
+    CHARACTER = "character"
 
 
 class Game:
@@ -111,6 +113,7 @@ class Game:
         self.host_screen = HostGameScreen(SCREEN_W, SCREEN_H)
         self.join_screen = JoinGameScreen(SCREEN_W, SCREEN_H)
         self.credits_screen = CreditsScreen(SCREEN_W, SCREEN_H)
+        self.character_screen = CharacterCustomizationScreen(SCREEN_W, SCREEN_H)
 
         self.current_world_name = None
         self.current_world_meta = None
@@ -290,6 +293,8 @@ class Game:
                     self.state = GameState.SETTINGS
                 elif result == "credits":
                     self.state = GameState.CREDITS
+                elif result == "character":
+                    self.state = GameState.CHARACTER
                 elif result == "quit":
                     self.running = False
 
@@ -386,6 +391,11 @@ class Game:
 
             elif self.state == GameState.CREDITS:
                 result = self.credits_screen.handle_event(event)
+                if result == "back":
+                    self.state = GameState.MENU
+
+            elif self.state == GameState.CHARACTER:
+                result = self.character_screen.handle_event(event)
                 if result == "back":
                     self.state = GameState.MENU
 
@@ -805,14 +815,15 @@ class Game:
                 shake_x = (random.random() - 0.5) * shake_amt * 0.05
                 shake_y = (random.random() - 0.5) * shake_amt * 0.05
         
+        sneak_offset = 0.25 if self.player.sneaking else 0.0
         if self.player.third_person:
             # Third-person camera
             cam_dist = 4.0
             ry = math.radians(self.player.yaw)
             cam_x = self.player.pos[0] + math.sin(ry) * cam_dist + shake_x
-            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.0 + shake_y
+            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.0 - sneak_offset + shake_y
             cam_z = self.player.pos[2] + math.cos(ry) * cam_dist
-            look = self.player.pos + np.array([0, PLAYER_HEIGHT * 0.8, 0])
+            look = self.player.pos + np.array([0, PLAYER_HEIGHT * 0.8 - sneak_offset, 0])
             gluLookAt(cam_x, cam_y, cam_z, look[0], look[1], look[2], 0, 1, 0)
         else:
             eye = self.player.get_eye_pos()
@@ -846,7 +857,9 @@ class Game:
                 self.player.pos[0], self.player.pos[1], self.player.pos[2],
                 self.player.yaw, self.player.pitch,
                 self.player.arm_swing, self.player.walk_cycle,
-                armor_slots=armor_dict
+                armor_slots=armor_dict,
+                is_sneaking=self.player.sneaking,
+                colors=get_character_colors()
             )
 
         # Entities and items
@@ -885,6 +898,10 @@ class Game:
         eye = self.player.get_eye_pos()
         hit, _, _ = raycast(self.world, eye, self.player.get_forward())
         draw_target_block(hit, FACE_VERTS)
+
+        # First-person hand + held block
+        if not self.player.third_person:
+            draw_first_person_hand(self.player, SCREEN_W, SCREEN_H)
 
         # HUD
         stats = {
@@ -1045,11 +1062,40 @@ class Game:
     def _draw_name_tag(self, x, y, z, name):
         glPushMatrix()
         glTranslatef(x, y, z)
-        glColor3f(1, 1, 1)
-        glPointSize(8)
-        glBegin(GL_POINTS)
-        glVertex3f(0, 0, 0)
+        
+        glDisable(GL_LIGHTING)
+        glDisable(GL_FOG)
+        glDisable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        
+        # Billboard: always face camera
+        modelview = glGetDoublev(GL_MODELVIEW_MATRIX)
+        glLoadIdentity()
+        glTranslatef(0, 0, -0.1)
+        for i in range(16):
+            if i % 4 < 3:
+                modelview[i] = 0.0
+        modelview[0] = modelview[5] = modelview[10] = 1.0
+        glLoadMatrixf(modelview)
+        glTranslatef(x, y, z)
+        
+        # Background
+        tw = text_renderer.get_text_width(name, "medium")
+        glColor4f(0, 0, 0, 0.5)
+        glBegin(GL_QUADS)
+        glVertex2f(-tw // 2 - 4, -4)
+        glVertex2f(tw // 2 + 4, -4)
+        glVertex2f(tw // 2 + 4, 16)
+        glVertex2f(-tw // 2 - 4, 16)
         glEnd()
+        
+        text_renderer.draw_text(-tw // 2, 0, name, "medium", (1, 1, 1))
+        
+        glDisable(GL_BLEND)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_FOG)
+        glEnable(GL_LIGHTING)
         glPopMatrix()
 
     def _output_to_screen(self, msg):
@@ -1058,7 +1104,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.3 - The CUDA Update")
+        print("  V2.4 - The Better Quality Update")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -1086,12 +1132,13 @@ class Game:
                     mode = "Creative" if self.player.creative else "Survival"
                     fly = "[Fly]" if self.player.flying else ""
                     sprint = "[Sprint]" if self.player.sprinting else ""
+                    sneak = "[Sneak]" if self.player.sneaking else ""
                     water = "[Swim]" if self.player.in_water else ""
                     dead = "[DEAD]" if self.player.dead else ""
                     tp = "[TP]" if self.player.third_person else ""
                     mobs = f"Mobs:{len(self.entity_manager.entities)}"
                     px, py, pz = self.player.pos
-                    caption = f"Pythmc V2.3 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                    caption = f"Pythmc V2.4 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                     pygame.display.set_caption(caption)
 
             elif self.state == GameState.PAUSED:
@@ -1135,6 +1182,12 @@ class Game:
                 self._handle_menu_events()
                 self.join_screen.update(dt, pygame.mouse.get_pos())
                 self.join_screen.draw()
+                pygame.display.flip()
+
+            elif self.state == GameState.CHARACTER:
+                self._handle_menu_events()
+                self.character_screen.update(dt, pygame.mouse.get_pos())
+                self.character_screen.draw()
                 pygame.display.flip()
 
             dt = self.clock.tick(FPS) / 1000.0

@@ -29,8 +29,8 @@ python3 run.py
 | WASD | Move |
 | Mouse | Look around |
 | Space | Jump / Fly up / Swim up |
-| Shift | Sprint / Fly down |
-| Ctrl | Sprint |
+| Shift | Sneak (ground) / Fly down |
+| Ctrl | Sprint (also prevents sneaking) |
 | Left Click | Break block / Attack |
 | Right Click | Place block / Use / Eat / Open furnace |
 | 1-9 | Select hotbar slot |
@@ -101,6 +101,15 @@ python3 run.py
 - Screen shake with intensity scaling
 - HUD warning with disaster name and timer
 
+### Better Quality (V2.4)
+- Outlined pixel font (1px black border for readability)
+- Character customization (skin, shirt, pants, eyes color pickers)
+- 3D world background on all menu screens
+- First-person hand + held block rendering
+- Multiplayer name tags (billboard text above heads)
+- Sneaking mechanic (Shift on ground: slower speed, edge protection, crouch view)
+- Survival HUD fix (item name above hearts, no overlap)
+
 ### Technical
 - 25+ procedural sound effects (no audio files)
 - Procedural texture generation (no image files for blocks)
@@ -117,7 +126,7 @@ python3 run.py
 
 ## Architecture
 
-34 Python source files, ~13,000+ lines of code.
+34 Python source files, ~14,000+ lines of code.
 
 ```
 run.py                  Entry point

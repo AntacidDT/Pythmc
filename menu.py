@@ -118,10 +118,11 @@ class MainMenu:
             Button(cx - 150, cy + 100, 300, 40, "SINGLEPLAYER", (0.2, 0.55, 0.2), (0.3, 0.75, 0.3)),
             Button(cx - 150, cy + 50, 300, 40, "HOST MULTIPLAYER", (0.15, 0.45, 0.55), (0.25, 0.6, 0.7)),
             Button(cx - 150, cy, 300, 40, "JOIN MULTIPLAYER", (0.2, 0.4, 0.6), (0.3, 0.55, 0.75)),
-            Button(cx - 150, cy - 50, 300, 40, "STRUCTURE BUILDER", (0.25, 0.45, 0.55), (0.35, 0.6, 0.7)),
-            Button(cx - 150, cy - 100, 300, 40, "SETTINGS", (0.25, 0.3, 0.5), (0.35, 0.4, 0.65)),
-            Button(cx - 150, cy - 150, 300, 40, "CREDITS", (0.3, 0.3, 0.45), (0.4, 0.4, 0.6)),
-            Button(cx - 150, cy - 200, 300, 40, "QUIT GAME", (0.5, 0.18, 0.18), (0.65, 0.25, 0.25)),
+            Button(cx - 150, cy - 50, 300, 40, "CHARACTER", (0.45, 0.3, 0.55), (0.55, 0.4, 0.7)),
+            Button(cx - 150, cy - 100, 300, 40, "STRUCTURE BUILDER", (0.25, 0.45, 0.55), (0.35, 0.6, 0.7)),
+            Button(cx - 150, cy - 150, 300, 40, "SETTINGS", (0.25, 0.3, 0.5), (0.35, 0.4, 0.65)),
+            Button(cx - 150, cy - 200, 300, 40, "CREDITS", (0.3, 0.3, 0.45), (0.4, 0.4, 0.6)),
+            Button(cx - 150, cy - 250, 300, 40, "QUIT GAME", (0.5, 0.18, 0.18), (0.65, 0.25, 0.25)),
         ]
 
         # 3D world background
@@ -255,7 +256,7 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.2  -  NATURAL DISASTERS", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.4  -  BETTER QUALITY", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
         # Buttons
@@ -698,6 +699,241 @@ class SettingsMenu:
 
         # Version
         text_renderer.draw_text(10, 10, "ESC = Back  |  Settings save automatically", size="small",
+                                color=(0.4, 0.45, 0.5))
+
+        glDisable(GL_BLEND)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_LIGHTING)
+        glEnable(GL_FOG)
+
+
+# ─── Character Customization Screen ────────────────────────────────────────
+
+PARTS = [
+    ("Skin", "skin"),
+    ("Shirt", "shirt"),
+    ("Pants", "pants"),
+    ("Eyes", "eyes"),
+]
+
+
+class CharacterCustomizationScreen:
+    def __init__(self, screen_w, screen_h):
+        self.screen_w = screen_w
+        self.screen_h = screen_h
+        self.time = 0
+        self.cam_yaw = 0
+
+        cx = screen_w // 2
+        cy = screen_h // 2
+
+        self.done_button = Button(cx - 170, cy - 280, 340, 40, "DONE", (0.2, 0.5, 0.2), (0.3, 0.7, 0.3))
+        self.reset_button = Button(cx - 170, cy - 325, 340, 40, "RESET DEFAULTS", (0.5, 0.2, 0.2), (0.65, 0.3, 0.3))
+
+        self._rebuild_buttons()
+
+    def _rebuild_buttons(self):
+        cx = self.screen_w // 2
+        cy = self.screen_h // 2
+        self.color_buttons = []
+        y_start = cy + 220
+        for part_i, (part_name, part_key) in enumerate(PARTS):
+            for ch_i, (ch_name, ch_key) in enumerate([("R", "r"), ("G", "g"), ("B", "b")]):
+                setting_key = f"{part_key}_{ch_key}"
+                val = int(settings_manager.get("appearance", setting_key))
+                by = y_start - part_i * 80 - ch_i * 24
+                label = f"{ch_name}: {val}"
+                self.color_buttons.append({
+                    "part_key": part_key,
+                    "ch_key": ch_key,
+                    "setting_key": setting_key,
+                    "label": Button(cx - 170, by, 120, 22, label),
+                    "minus": Button(cx + 180, by, 40, 22, "-", (0.4, 0.2, 0.2), (0.6, 0.3, 0.3)),
+                    "plus": Button(cx + 226, by, 40, 22, "+", (0.2, 0.4, 0.2), (0.3, 0.6, 0.3)),
+                })
+
+    def _refresh_button_label(self, btn_info):
+        val = int(settings_manager.get("appearance", btn_info["setting_key"]))
+        ch_name = btn_info["ch_key"].upper()
+        btn_info["label"].text = f"{ch_name}: {val}"
+
+    def handle_event(self, event):
+        if event.type == MOUSEBUTTONDOWN and event.button == 1:
+            mx, my = event.pos
+            my = self.screen_h - my
+            if self.done_button.contains(mx, my):
+                settings_manager.save()
+                return "back"
+            if self.reset_button.contains(mx, my):
+                defaults = {
+                    "skin_r": 230, "skin_g": 191, "skin_b": 153,
+                    "shirt_r": 51, "shirt_g": 128, "shirt_b": 204,
+                    "pants_r": 77, "pants_g": 77, "pants_b": 153,
+                    "eyes_r": 26, "eyes_g": 77, "eyes_b": 153,
+                }
+                for k, v in defaults.items():
+                    settings_manager.set("appearance", k, v)
+                self._rebuild_buttons()
+                sound_manager.play('click')
+                return None
+            for btn_info in self.color_buttons:
+                if btn_info["minus"].contains(mx, my):
+                    val = int(settings_manager.get("appearance", btn_info["setting_key"]))
+                    settings_manager.set("appearance", btn_info["setting_key"], max(0, val - 10))
+                    self._refresh_button_label(btn_info)
+                    sound_manager.play('click')
+                    return None
+                if btn_info["plus"].contains(mx, my):
+                    val = int(settings_manager.get("appearance", btn_info["setting_key"]))
+                    settings_manager.set("appearance", btn_info["setting_key"], min(255, val + 10))
+                    self._refresh_button_label(btn_info)
+                    sound_manager.play('click')
+                    return None
+        elif event.type == KEYDOWN and event.key == K_ESCAPE:
+            settings_manager.save()
+            return "back"
+        return None
+
+    def update(self, dt, mouse_pos):
+        self.time += dt
+        self.cam_yaw += dt * 30
+        mx, my = mouse_pos
+        my = self.screen_h - my
+        self.done_button.hovered = self.done_button.contains(mx, my)
+        self.reset_button.hovered = self.reset_button.contains(mx, my)
+        for btn_info in self.color_buttons:
+            btn_info["minus"].hovered = btn_info["minus"].contains(mx, my)
+            btn_info["plus"].hovered = btn_info["plus"].contains(mx, my)
+
+    def draw(self):
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glEnable(GL_DEPTH_TEST)
+        glClearColor(0.06, 0.06, 0.1, 1.0)
+
+        # 3D character preview on left half
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        aspect = (self.screen_w / 2) / self.screen_h
+        gluPerspective(50, aspect, 0.1, 200.0)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+
+        cam_x = math.cos(math.radians(self.cam_yaw)) * 4
+        cam_z = math.sin(math.radians(self.cam_yaw)) * 4
+        cam_y = 1.3
+        gluLookAt(cam_x, cam_y, cam_z, 0, 1.0, 0, 0, 1, 0)
+
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.5, 1.0))
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.9, 0.85, 0.8, 1.0))
+        glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.3, 0.0))
+
+        glViewport(0, 0, self.screen_w // 2, self.screen_h)
+
+        glDisable(GL_LIGHTING)
+        glColor3f(0.3, 0.5, 0.3)
+        glBegin(GL_QUADS)
+        glVertex3f(-3, 0, -3)
+        glVertex3f(3, 0, -3)
+        glVertex3f(3, 0, 3)
+        glVertex3f(-3, 0, 3)
+        glEnd()
+        glEnable(GL_LIGHTING)
+
+        from renderer import draw_player_body, get_character_colors
+        colors = get_character_colors()
+        walk = math.sin(self.time * 3) * 0.5
+        draw_player_body(0, 0, 0, 0, 0, 0, walk, colors=colors)
+
+        glDisable(GL_LIGHTING)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        glViewport(0, 0, self.screen_w, self.screen_h)
+
+        # 2D overlay on right half
+        glDisable(GL_DEPTH_TEST)
+        glDisable(GL_LIGHTING)
+        glDisable(GL_FOG)
+
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        glOrtho(0, self.screen_w, 0, self.screen_h, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        glColor4f(0.04, 0.04, 0.08, 0.92)
+        glBegin(GL_QUADS)
+        glVertex2f(self.screen_w // 2, 0)
+        glVertex2f(self.screen_w, 0)
+        glVertex2f(self.screen_w, self.screen_h)
+        glVertex2f(self.screen_w // 2, self.screen_h)
+        glEnd()
+
+        glColor4f(0.3, 0.3, 0.4, 0.5)
+        glLineWidth(2)
+        glBegin(GL_LINES)
+        glVertex2f(self.screen_w // 2, 0)
+        glVertex2f(self.screen_w // 2, self.screen_h)
+        glEnd()
+
+        cx = self.screen_w // 2
+        screen_cx = self.screen_w * 3 // 4
+
+        text_renderer.draw_text_centered_shadow(screen_cx, self.screen_h - 40, "CHARACTER",
+                                                "medium", (0.8, 0.6, 1.0), (0.2, 0.1, 0.3))
+
+        y_start = self.screen_h - 80
+        for part_i, (part_name, _) in enumerate(PARTS):
+            by = y_start - part_i * 80
+            preview_colors = get_character_colors()
+            preview_color = preview_colors[part_name.lower()]
+            text_renderer.draw_text(cx + 20, by + 2, part_name, "medium", preview_color)
+
+        for btn_info in self.color_buttons:
+            btn_info["label"].draw()
+            btn_info["minus"].draw()
+            btn_info["plus"].draw()
+
+        for part_i, (part_name, _) in enumerate(PARTS):
+            by = y_start - part_i * 80
+            preview_colors = get_character_colors()
+            preview_color = preview_colors[part_name.lower()]
+            glColor3f(*preview_color)
+            glBegin(GL_QUADS)
+            glVertex2f(cx + 160, by)
+            glVertex2f(cx + 200, by)
+            glVertex2f(cx + 200, by + 20)
+            glVertex2f(cx + 160, by + 20)
+            glEnd()
+            glColor4f(1, 1, 1, 0.3)
+            glLineWidth(1)
+            glBegin(GL_LINE_LOOP)
+            glVertex2f(cx + 160, by)
+            glVertex2f(cx + 200, by)
+            glVertex2f(cx + 200, by + 20)
+            glVertex2f(cx + 160, by + 20)
+            glEnd()
+
+        self.done_button.draw()
+        self.reset_button.draw()
+
+        text_renderer.draw_text(10, 10, "ESC = Back  |  Preview rotates automatically", size="small",
                                 color=(0.4, 0.45, 0.5))
 
         glDisable(GL_BLEND)

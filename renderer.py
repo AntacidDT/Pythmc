@@ -519,9 +519,8 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
 
 
 def draw_first_person_body(player, screen_w, screen_h):
-    """Draw the player's body in first-person as an orthographic viewmodel.
-    Shows torso, arms, legs from above (like looking down at yourself).
-    No head (camera IS the head)."""
+    """Draw the player's arm and held item in Minecraft first-person style.
+    Right arm comes from bottom-right with shirt sleeve + skin hand."""
     glDisable(GL_LIGHTING)
     glDisable(GL_FOG)
     glDisable(GL_DEPTH_TEST)
@@ -539,7 +538,6 @@ def draw_first_person_body(player, screen_w, screen_h):
     colors = get_character_colors()
     skin = colors.get("skin", (0.90, 0.75, 0.60))
     shirt = colors.get("shirt", (0.20, 0.40, 0.70))
-    pants = colors.get("pants", (0.30, 0.30, 0.60))
 
     swing = getattr(player, 'arm_swing', 0)
 
@@ -548,108 +546,99 @@ def draw_first_person_body(player, screen_w, screen_h):
     if player.on_ground and not player.flying:
         speed = abs(player.velocity[0]) + abs(player.velocity[2])
         if speed > 0.5:
-            bob = math.sin(player.walk_cycle * 2) * 6
+            bob = math.sin(player.walk_cycle * 2) * 5
     elif player.in_water:
         bob = math.sin(player.walk_cycle * 1.5) * 4
 
-    # Eat animation
+    # Eat animation — arm lifts up
     eat_lift = 0
     if player.eating:
         eat_progress = min(1.0, player.eat_timer / player.eat_duration)
-        eat_lift = math.sin(eat_progress * math.pi) * 50
+        eat_lift = math.sin(eat_progress * math.pi) * 60
 
-    # Center-bottom anchor (like Minecraft body from above)
-    cx = screen_w // 2
-    base_y = -20 + bob * 0.3 - eat_lift * 0.3
+    # Swing the arm forward (up on screen) when breaking/placing
+    swing_y = swing * 0.6
+    swing_x = -swing * 0.25
 
-    # ── Leg swing (walking animation) ──
-    leg_swing = math.sin(player.walk_cycle) * 8 if player.walk_cycle else 0
+    # Position: bottom-right of screen (like Minecraft)
+    base_x = screen_w - 100
+    base_y = -30 + bob * 0.3 + eat_lift
 
-    # ── Left leg ──
-    ll_x = cx - 22
-    ll_y = base_y
-    ll_w = 18
-    ll_h = 40
-    glColor4f(pants[0], pants[1], pants[2], 0.95)
+    arm_x = base_x + swing_x
+    arm_y = base_y + swing_y
+
+    # ── Arm dimensions (blocky Minecraft style) ──
+    arm_w = 24       # width
+    sleeve_h = 45    # upper arm (shirt sleeve)
+    hand_h = 38      # lower arm (skin hand)
+    side_w = 7       # side face width for 3D depth
+
+    # ── Upper arm — shirt sleeve (front face) ──
+    glColor4f(shirt[0], shirt[1], shirt[2], 0.96)
     glBegin(GL_QUADS)
-    glVertex2f(ll_x - leg_swing, ll_y)
-    glVertex2f(ll_x + ll_w - leg_swing, ll_y)
-    glVertex2f(ll_x + ll_w - leg_swing, ll_y + ll_h)
-    glVertex2f(ll_x - leg_swing, ll_y + ll_h)
+    glVertex2f(arm_x, arm_y)
+    glVertex2f(arm_x + arm_w, arm_y)
+    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
+    glVertex2f(arm_x, arm_y + sleeve_h)
     glEnd()
 
-    # ── Right leg ──
-    rl_x = cx + 4
-    rl_y = base_y
-    rl_w = 18
-    rl_h = 40
-    glColor4f(pants[0] * 0.9, pants[1] * 0.9, pants[2] * 0.9, 0.95)
+    # ── Upper arm — right side (darker) ──
+    glColor4f(shirt[0] * 0.65, shirt[1] * 0.65, shirt[2] * 0.65, 0.96)
     glBegin(GL_QUADS)
-    glVertex2f(rl_x + leg_swing, rl_y)
-    glVertex2f(rl_x + rl_w + leg_swing, rl_y)
-    glVertex2f(rl_x + rl_w + leg_swing, rl_y + rl_h)
-    glVertex2f(rl_x + leg_swing, ll_y + rl_h)
+    glVertex2f(arm_x + arm_w, arm_y)
+    glVertex2f(arm_x + arm_w + side_w, arm_y + 3)
+    glVertex2f(arm_x + arm_w + side_w, arm_y + sleeve_h + 3)
+    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
     glEnd()
 
-    # ── Torso ──
-    t_x = cx - 26
-    t_y = base_y + ll_h - 2
-    t_w = 52
-    t_h = 55
-    # Front face
-    glColor4f(shirt[0], shirt[1], shirt[2], 0.95)
+    # ── Upper arm — bottom edge (slightly lighter for sleeve line) ──
+    glColor4f(shirt[0] * 1.1, shirt[1] * 1.1, shirt[2] * 1.1, 0.96)
     glBegin(GL_QUADS)
-    glVertex2f(t_x, t_y)
-    glVertex2f(t_x + t_w, t_y)
-    glVertex2f(t_x + t_w, t_y + t_h)
-    glVertex2f(t_x, t_y + t_h)
-    glEnd()
-    # Slightly darker bottom edge for depth
-    glColor4f(shirt[0] * 0.8, shirt[1] * 0.8, shirt[2] * 0.8, 0.95)
-    glBegin(GL_QUADS)
-    glVertex2f(t_x, t_y)
-    glVertex2f(t_x + t_w, t_y)
-    glVertex2f(t_x + t_w, t_y + 6)
-    glVertex2f(t_x, t_y + 6)
+    glVertex2f(arm_x, arm_y + sleeve_h - 3)
+    glVertex2f(arm_x + arm_w, arm_y + sleeve_h - 3)
+    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
+    glVertex2f(arm_x, arm_y + sleeve_h)
     glEnd()
 
-    # ── Left arm ──
-    la_x = t_x - 18
-    la_y = t_y + t_h * 0.3
-    la_w = 16
-    la_h = 50
-    arm_swing_offset = swing * 0.3
-    glColor4f(skin[0], skin[1], skin[2], 0.95)
+    # ── Hand — skin (front face) ──
+    hx = arm_x + 1
+    hw = arm_w - 2
+    hy = arm_y + sleeve_h
+    glColor4f(skin[0], skin[1], skin[2], 0.96)
     glBegin(GL_QUADS)
-    glVertex2f(la_x + arm_swing_offset, la_y)
-    glVertex2f(la_x + la_w + arm_swing_offset, la_y)
-    glVertex2f(la_x + la_w + arm_swing_offset, la_y + la_h)
-    glVertex2f(la_x + arm_swing_offset, la_y + la_h)
+    glVertex2f(hx, hy)
+    glVertex2f(hx + hw, hy)
+    glVertex2f(hx + hw, hy + hand_h)
+    glVertex2f(hx, hy + hand_h)
     glEnd()
 
-    # ── Right arm (with held block) ──
-    ra_x = t_x + t_w + 2
-    ra_y = t_y + t_h * 0.3
-    ra_w = 16
-    ra_h = 50
-    # Swing the right arm more when breaking
-    glColor4f(skin[0] * 0.92, skin[1] * 0.92, skin[2] * 0.92, 0.95)
+    # ── Hand — right side (darker) ──
+    glColor4f(skin[0] * 0.75, skin[1] * 0.75, skin[2] * 0.75, 0.96)
     glBegin(GL_QUADS)
-    glVertex2f(ra_x - arm_swing_offset, ra_y)
-    glVertex2f(ra_x + ra_w - arm_swing_offset, ra_y)
-    glVertex2f(ra_x + ra_w - arm_swing_offset, ra_y + ra_h)
-    glVertex2f(ra_x - arm_swing_offset, ra_y + ra_h)
+    glVertex2f(hx + hw, hy)
+    glVertex2f(hx + hw + side_w - 1, hy + 3)
+    glVertex2f(hx + hw + side_w - 1, hy + hand_h + 3)
+    glVertex2f(hx + hw, hy + hand_h)
     glEnd()
 
-    # ── Held block on right hand ──
+    # ── Hand — top edge (lighter for wrist line) ──
+    glColor4f(skin[0] * 1.05, skin[1] * 1.05, skin[2] * 1.05, 0.96)
+    glBegin(GL_QUADS)
+    glVertex2f(hx - 1, hy)
+    glVertex2f(hx + hw - 1, hy)
+    glVertex2f(hx + hw + side_w - 2, hy + 3)
+    glVertex2f(hx - 1 + side_w, hy + 3)
+    glEnd()
+
+    # ── Held block/item on top of hand ──
     held_item = player.hotbar[player.selected_slot]
     if held_item and held_item in ITEM_COLORS:
         c = ITEM_COLORS[held_item][1]
-        bx = ra_x + 1 - arm_swing_offset
-        by = ra_y + ra_h + 4
+        bx = hx + 2
+        by = hy + hand_h + 4
         bs = 22
         # Front face
-        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.95)
+        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.96)
         glBegin(GL_QUADS)
         glVertex2f(bx, by)
         glVertex2f(bx + bs, by)
@@ -657,19 +646,19 @@ def draw_first_person_body(player, screen_w, screen_h):
         glVertex2f(bx, by + bs)
         glEnd()
         # Top face (lighter)
-        glColor4f(c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 0.95)
+        glColor4f(c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 0.96)
         glBegin(GL_QUADS)
         glVertex2f(bx - 4, by + bs)
         glVertex2f(bx + bs - 4, by + bs)
-        glVertex2f(bx + bs, by + bs + 6)
-        glVertex2f(bx, by + bs + 6)
+        glVertex2f(bx + bs + side_w - 5, by + bs + 6)
+        glVertex2f(bx - 4 + side_w, by + bs + 6)
         glEnd()
         # Right face (darker)
-        glColor4f(c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0.95)
+        glColor4f(c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0.96)
         glBegin(GL_QUADS)
         glVertex2f(bx + bs, by)
-        glVertex2f(bx + bs + 4, by + 6)
-        glVertex2f(bx + bs + 4, by + bs + 6)
+        glVertex2f(bx + bs + side_w - 2, by + 3)
+        glVertex2f(bx + bs + side_w - 2, by + bs + 6)
         glVertex2f(bx + bs, by + bs)
         glEnd()
 

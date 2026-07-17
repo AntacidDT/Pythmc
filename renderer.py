@@ -519,7 +519,7 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
 
 
 def draw_first_person_hand(player, screen_w, screen_h):
-    """Draw the player's hand and held block in first-person view."""
+    """Draw the player's blocky Minecraft-style arm and held item in first-person."""
     glDisable(GL_LIGHTING)
     glDisable(GL_FOG)
     glDisable(GL_DEPTH_TEST)
@@ -534,53 +534,112 @@ def draw_first_person_hand(player, screen_w, screen_h):
     glPushMatrix()
     glLoadIdentity()
 
-    # Hand bob when walking
+    colors = get_character_colors()
+    skin = colors.get("skin", (0.90, 0.75, 0.60))
+    shirt = colors.get("shirt", (0.20, 0.40, 0.70))
+
+    # Swing angle from arm_swing (0-45 when attacking, oscillates when walking)
+    swing = getattr(player, 'arm_swing', 0)
+
+    # Walk bob
     bob = 0
     if player.on_ground and not player.flying:
         speed = abs(player.velocity[0]) + abs(player.velocity[2])
         if speed > 0.5:
-            bob = math.sin(player.walk_cycle * 2) * 6
+            bob = math.sin(player.walk_cycle * 2) * 8
     elif player.in_water:
-        bob = math.sin(player.walk_cycle * 1.5) * 4
+        bob = math.sin(player.walk_cycle * 1.5) * 5
 
-    # Eat animation
+    # Eat animation — lift arm up
     eat_lift = 0
     if player.eating:
         eat_progress = min(1.0, player.eat_timer / player.eat_duration)
-        eat_lift = math.sin(eat_progress * math.pi) * 40
+        eat_lift = math.sin(eat_progress * math.pi) * 80
 
-    hand_x = screen_w - 90 + bob * 0.3
-    hand_y = -40 + abs(bob) * 0.5 + eat_lift
+    # Position (bottom-right of screen, like Minecraft)
+    base_x = screen_w - 85
+    base_y = -30 + bob * 0.5 + eat_lift
 
-    # Arm (skin-colored rectangle)
-    colors = get_character_colors()
-    skin = colors.get("skin", (0.90, 0.75, 0.60))
-    glColor4f(skin[0], skin[1], skin[2], 0.95)
-    # Upper arm
+    # Swing offset — arm swings forward (up on screen) when attacking
+    swing_y = swing * 0.8
+    swing_x = -swing * 0.3
+
+    arm_x = base_x + swing_x
+    arm_y = base_y + swing_y
+
+    # ── Arm dimensions ──
+    arm_w = 22    # width
+    upper_h = 55  # upper arm (with sleeve)
+    hand_h = 35   # hand (skin)
+
+    # ── Upper arm (shirt sleeve) — front face ──
+    glColor4f(shirt[0] * 0.85, shirt[1] * 0.85, shirt[2] * 0.85, 0.98)
     glBegin(GL_QUADS)
-    glVertex2f(hand_x - 8, hand_y)
-    glVertex2f(hand_x + 16, hand_y)
-    glVertex2f(hand_x + 16, hand_y + 70)
-    glVertex2f(hand_x - 8, hand_y + 70)
-    glEnd()
-    # Hand
-    glColor4f(skin[0] * 0.95, skin[1] * 0.95, skin[2] * 0.95, 0.95)
-    glBegin(GL_QUADS)
-    glVertex2f(hand_x - 6, hand_y + 70)
-    glVertex2f(hand_x + 14, hand_y + 70)
-    glVertex2f(hand_x + 14, hand_y + 90)
-    glVertex2f(hand_x - 6, hand_y + 90)
+    glVertex2f(arm_x, arm_y)
+    glVertex2f(arm_x + arm_w, arm_y)
+    glVertex2f(arm_x + arm_w, arm_y + upper_h)
+    glVertex2f(arm_x, arm_y + upper_h)
     glEnd()
 
-    # Held block on top of hand
+    # ── Upper arm — right side (darker) ──
+    side_w = 6
+    glColor4f(shirt[0] * 0.6, shirt[1] * 0.6, shirt[2] * 0.6, 0.98)
+    glBegin(GL_QUADS)
+    glVertex2f(arm_x + arm_w, arm_y)
+    glVertex2f(arm_x + arm_w + side_w, arm_y + 3)
+    glVertex2f(arm_x + arm_w + side_w, arm_y + upper_h + 3)
+    glVertex2f(arm_x + arm_w, arm_y + upper_h)
+    glEnd()
+
+    # ── Upper arm — top face (lighter) ──
+    glColor4f(shirt[0] * 1.1, shirt[1] * 1.1, shirt[2] * 1.1, 0.98)
+    glBegin(GL_QUADS)
+    glVertex2f(arm_x - 2, arm_y + upper_h)
+    glVertex2f(arm_x + arm_w - 2, arm_y + upper_h)
+    glVertex2f(arm_x + arm_w + side_w - 2, arm_y + upper_h + 3)
+    glVertex2f(arm_x - 2 + side_w, arm_y + upper_h + 3)
+    glEnd()
+
+    # ── Hand (skin) — front face ──
+    hx = arm_x + 1
+    hw = arm_w - 2
+    hy = arm_y + upper_h
+    glColor4f(skin[0], skin[1], skin[2], 0.98)
+    glBegin(GL_QUADS)
+    glVertex2f(hx, hy)
+    glVertex2f(hx + hw, hy)
+    glVertex2f(hx + hw, hy + hand_h)
+    glVertex2f(hx, hy + hand_h)
+    glEnd()
+
+    # ── Hand — right side (darker) ──
+    glColor4f(skin[0] * 0.78, skin[1] * 0.78, skin[2] * 0.78, 0.98)
+    glBegin(GL_QUADS)
+    glVertex2f(hx + hw, hy)
+    glVertex2f(hx + hw + side_w - 1, hy + 3)
+    glVertex2f(hx + hw + side_w - 1, hy + hand_h + 3)
+    glVertex2f(hx + hw, hy + hand_h)
+    glEnd()
+
+    # ── Hand — top face (lighter) ──
+    glColor4f(skin[0] * 1.05, skin[1] * 1.05, skin[2] * 1.05, 0.98)
+    glBegin(GL_QUADS)
+    glVertex2f(hx - 1, hy + hand_h)
+    glVertex2f(hx + hw - 1, hy + hand_h)
+    glVertex2f(hx + hw + side_w - 2, hy + hand_h + 3)
+    glVertex2f(hx - 1 + side_w, hy + hand_h + 3)
+    glEnd()
+
+    # ── Held block/item on top of hand ──
     held_item = player.hotbar[player.selected_slot]
     if held_item and held_item in ITEM_COLORS:
         c = ITEM_COLORS[held_item][1]
-        bx = hand_x + 2
-        by = hand_y + 86
-        bs = 18  # block size
+        bx = hx + 2
+        by = hy + hand_h + 4
+        bs = 20
+
         # Front face
-        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.95)
+        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.98)
         glBegin(GL_QUADS)
         glVertex2f(bx, by)
         glVertex2f(bx + bs, by)
@@ -588,19 +647,19 @@ def draw_first_person_hand(player, screen_w, screen_h):
         glVertex2f(bx, by + bs)
         glEnd()
         # Top face (lighter)
-        glColor4f(c[0], c[1], c[2], 0.95)
+        glColor4f(c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 0.98)
         glBegin(GL_QUADS)
-        glVertex2f(bx - 4, by + bs)
-        glVertex2f(bx + bs - 4, by + bs)
-        glVertex2f(bx + bs - 4, by + bs + 6)
-        glVertex2f(bx - 4, by + bs + 6)
+        glVertex2f(bx - 3, by + bs)
+        glVertex2f(bx + bs - 3, by + bs)
+        glVertex2f(bx + bs + side_w - 5, by + bs + 5)
+        glVertex2f(bx - 3 + side_w, by + bs + 5)
         glEnd()
         # Right face (darker)
-        glColor4f(c[0] * 0.6, c[1] * 0.6, c[2] * 0.6, 0.95)
+        glColor4f(c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0.98)
         glBegin(GL_QUADS)
         glVertex2f(bx + bs, by)
-        glVertex2f(bx + bs + 4, by + 6)
-        glVertex2f(bx + bs + 4, by + bs + 6)
+        glVertex2f(bx + bs + side_w - 2, by + 3)
+        glVertex2f(bx + bs + side_w - 2, by + bs + 5)
         glVertex2f(bx + bs, by + bs)
         glEnd()
 

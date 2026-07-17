@@ -1,8 +1,8 @@
 # Pythmc - Minecraft Clone in Python
 
-A 3D voxel game built from scratch using Python and OpenGL. No game engine — just raw OpenGL immediate mode, procedural textures, procedural sounds, and bundled dependencies.
+A 3D voxel game built from scratch using Python and OpenGL. No traditional game engine— just raw OpenGL immediate mode, procedural textures, procedural sounds, and bundled dependencies.
 
-**Engine:** Pythkernel
+**Engine:** Pythkernel (specialized for Pythmc)
 **Works on school computers. No pip install needed.**
 
 ## How to Run

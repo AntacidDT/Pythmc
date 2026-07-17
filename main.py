@@ -51,6 +51,7 @@ from settings_manager import settings_manager
 from io_system import io_manager
 from physics import PhysicsManager
 from disasters import DisasterManager
+from cuda_manager import try_init_cupy, set_cuda_enabled, get_cuda_status, is_cuda_enabled
 import world_manager
 
 
@@ -82,6 +83,14 @@ class Game:
         text_renderer.init()
         texture_manager.init()
         sound_manager.init()
+
+        # V2.3: CUDA GPU detection
+        cuda_ok = try_init_cupy()
+        cuda_pref = settings_manager.get("gpu", "cuda_enabled")
+        set_cuda_enabled(cuda_ok and bool(cuda_pref))
+        if cuda_ok:
+            status = get_cuda_status()
+            print(f"  CUDA: {status['gpu_name']}")
         
         self.step_timer = 0
         self.step_interval = 0.4
@@ -1049,7 +1058,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.2 - Natural Disasters")
+        print("  V2.3 - The CUDA Update")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -1082,7 +1091,7 @@ class Game:
                     tp = "[TP]" if self.player.third_person else ""
                     mobs = f"Mobs:{len(self.entity_manager.entities)}"
                     px, py, pz = self.player.pos
-                    caption = f"Pythmc V2.2 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                    caption = f"Pythmc V2.3 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                     pygame.display.set_caption(caption)
 
             elif self.state == GameState.PAUSED:

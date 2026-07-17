@@ -1,4 +1,4 @@
-"""Pythmc - Constants and Block Types - V2.2 Natural Disasters"""
+"""Pythmc - Constants and Block Types - V2.3 The CUDA Update"""
 
 # ─── Screen ──────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 1280, 720

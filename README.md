@@ -108,10 +108,16 @@ python3 run.py
 - Third-person camera with player body rendering
 - Developer debug overlay (Alt+F2)
 - 25+ console commands
+- V2.3: NVIDIA CUDA GPU acceleration (CuPy)
+  - Batch terrain noise generation on GPU
+  - GPU-accelerated cave carving (3D noise)
+  - GPU particle physics update
+  - GPU fluid spread simulation
+  - Auto-detects NVIDIA GPU, on/off toggle in Settings > GPU
 
 ## Architecture
 
-33 Python source files, ~12,000+ lines of code.
+34 Python source files, ~13,000+ lines of code.
 
 ```
 run.py                  Entry point
@@ -130,6 +136,7 @@ terminal.py             Console commands
 atmosphere.py           Weather, particles, sky rendering
 physics.py              Explosions, fluid sim, wind, falling blocks
 disasters.py            15 natural disasters with chain events
+cuda_manager.py         NVIDIA CUDA GPU acceleration (CuPy)
 circuits.py             Electronics simulation
 factory.py              Electronics factory structure
 structures.py           World structures

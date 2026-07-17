@@ -1,4 +1,4 @@
-"""Pythmc - Natural Disasters System V2.2
+"""Pythmc - Natural Disasters System V2.3
 
 15 disasters with biome rules, chain events, and visual effects.
 

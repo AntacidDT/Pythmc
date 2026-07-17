@@ -4,6 +4,7 @@ Features:
 - Threaded chunk generation (no lag when crossing borders)
 - Proper chunk unloading (memory management)
 - Cross-chunk face culling (no hidden walls at borders)
+- V2.3: GPU-accelerated terrain and cave generation via CUDA/CuPy
 """
 
 import numpy as np
@@ -52,135 +53,18 @@ class Chunk:
         self.mesh_built = False
 
     def generate_terrain(self, seed):
-        """Generate terrain data (can be called from thread)."""
-        world_x = self.cx * CHUNK_SIZE
-        world_z = self.cz * CHUNK_SIZE
-        
-        for x in range(CHUNK_SIZE):
-            for z in range(CHUNK_SIZE):
-                wx = world_x + x
-                wz = world_z + z
-                
-                # Biome noise
-                biome_noise1 = pnoise2(wx * 0.002, wz * 0.002, octaves=2, base=seed + 500)
-                biome_noise2 = pnoise2(wx * 0.003, wz * 0.003, octaves=2, base=seed + 600)
-                biome_noise3 = pnoise2(wx * 0.0015, wz * 0.0015, octaves=2, base=seed + 700)
-                
-                if biome_noise3 < -0.25:
-                    biome = "ocean"
-                elif biome_noise1 > 0.15 and biome_noise2 < 0.0:
-                    biome = "desert"
-                elif biome_noise1 < -0.2:
-                    biome = "snow"
-                elif biome_noise2 > 0.15:
-                    biome = "forest"
-                elif biome_noise1 > 0.05 and biome_noise2 > 0.05:
-                    biome = "jungle"
-                else:
-                    biome = "plains"
-                
-                base_height = pnoise2(wx * 0.005, wz * 0.005, octaves=6, base=seed) * 25
-                detail = pnoise2(wx * 0.02, wz * 0.02, octaves=4, base=seed + 100) * 6
-                
-                if biome == "ocean":
-                    base_height = base_height * 0.3 - 15
-                elif biome == "desert":
-                    base_height = base_height * 0.6 + 3
-                elif biome == "snow":
-                    base_height = base_height * 1.2
-                elif biome == "forest":
-                    base_height = base_height * 0.9
-                elif biome == "jungle":
-                    base_height = base_height * 0.8 + 3
-                
-                height = int(base_height + detail + 30)
-                height = max(1, min(CHUNK_HEIGHT - 2, height))
-                sea_level = 19
-                
-                for y in range(height + 1):
-                    if y == 0:
-                        self.blocks[x, y, z] = BEDROCK
-                    elif y < height - 4:
-                        self.blocks[x, y, z] = STONE
-                        if y < height - 6 and random.random() < 0.025:
-                            self.blocks[x, y, z] = COAL_ORE
-                        if y < height - 8 and random.random() < 0.015:
-                            self.blocks[x, y, z] = IRON_ORE
-                        if y < height - 12 and random.random() < 0.008:
-                            self.blocks[x, y, z] = GOLD_ORE
-                        if y < 15 and random.random() < 0.004:
-                            self.blocks[x, y, z] = DIAMOND_ORE
-                        if random.random() < 0.02:
-                            self.blocks[x, y, z] = GRAVEL
-                    elif y < height:
-                        if biome in ("desert", "ocean"):
-                            self.blocks[x, y, z] = SAND
-                        else:
-                            self.blocks[x, y, z] = DIRT
-                    elif y == height:
-                        if biome == "desert":
-                            self.blocks[x, y, z] = SAND
-                        elif biome == "snow":
-                            self.blocks[x, y, z] = SNOW
-                        elif biome == "ocean" and height < sea_level:
-                            self.blocks[x, y, z] = SAND
-                        elif height <= sea_level:
-                            self.blocks[x, y, z] = SAND
-                        else:
-                            self.blocks[x, y, z] = GRASS
-                
-                for y in range(height + 1, sea_level + 1):
-                    self.blocks[x, y, z] = WATER
-        
-        self._generate_caves(seed)
+        """Generate terrain data (can be called from thread).
+        Uses GPU acceleration via CUDA when available."""
+        from cuda_manager import gpu_generate_chunk_terrain
+        gpu_generate_chunk_terrain(self, seed)
         self._generate_cave_entrances(seed)
         self._generate_trees(seed)
         self.generated = True
 
     def _generate_caves(self, seed):
-        """Generate cave systems using 3D Perlin noise."""
-        world_x = self.cx * CHUNK_SIZE
-        world_z = self.cz * CHUNK_SIZE
-        
-        for x in range(CHUNK_SIZE):
-            for z in range(CHUNK_SIZE):
-                wx = world_x + x
-                wz = world_z + z
-                
-                surface_y = 0
-                for y in range(CHUNK_HEIGHT - 1, 0, -1):
-                    if self.blocks[x, y, z] not in (AIR, WATER):
-                        surface_y = y
-                        break
-                
-                for y in range(1, surface_y):
-                    block = self.blocks[x, y, z]
-                    if block in (AIR, WATER, BEDROCK):
-                        continue
-                    
-                    cave_noise1 = pnoise3(wx * 0.03, y * 0.05, wz * 0.03, octaves=3, base=seed + 1000)
-                    cave_noise2 = pnoise3(wx * 0.05, y * 0.08, wz * 0.05, octaves=2, base=seed + 2000)
-                    cave_noise3 = pnoise3(wx * 0.1, y * 0.12, wz * 0.1, octaves=2, base=seed + 3000)
-                    
-                    depth_factor = 1.0 - (y / surface_y) if surface_y > 0 else 0
-                    
-                    large_cave = cave_noise1 > (0.45 - depth_factor * 0.05)
-                    medium_cave = cave_noise2 > (0.5 - depth_factor * 0.1)
-                    small_cave = cave_noise3 > (0.55 - depth_factor * 0.05)
-                    
-                    is_cave = large_cave and (medium_cave or small_cave)
-                    
-                    if is_cave:
-                        self.blocks[x, y, z] = AIR
-                        if y < 12 and y < 8 and random.random() < 0.15:
-                            self.blocks[x, y, z] = WATER
-                        elif y < 20:
-                            if self.blocks[x, y - 1, z] in (AIR, WATER) and random.random() < 0.3:
-                                self.blocks[x, y - 1, z] = GRAVEL
-                        else:
-                            if random.random() < 0.02:
-                                if y + 1 < CHUNK_HEIGHT and self.blocks[x, y + 1, z] in (STONE, COBBLESTONE):
-                                    self.blocks[x, y, z] = TORCH
+        """Generate cave systems. Uses GPU acceleration when available."""
+        from cuda_manager import gpu_generate_caves
+        gpu_generate_caves(self, seed)
 
     def _generate_cave_entrances(self, seed):
         world_x = self.cx * CHUNK_SIZE

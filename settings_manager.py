@@ -35,6 +35,9 @@ DEFAULTS = {
         "sensitivity": 0.15,
         "volume": 0.5,
     },
+    "gpu": {
+        "cuda_enabled": False,
+    },
 }
 
 # Ranges for clamping values
@@ -67,6 +70,9 @@ RANGES = {
         "sensitivity": (0.01, 1.0),
         "volume": (0.0, 1.0),
     },
+    "gpu": {
+        "cuda_enabled": (0, 1),
+    },
 }
 
 # Display names for UI
@@ -98,6 +104,9 @@ DISPLAY_NAMES = {
         "fov": "Field of View",
         "sensitivity": "Mouse Sensitivity",
         "volume": "Master Volume",
+    },
+    "gpu": {
+        "cuda_enabled": "NVIDIA CUDA",
     },
 }
 

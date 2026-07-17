@@ -1,4 +1,4 @@
-"""Pythmc - Renderer, HUD, and Visual Effects - V2.1"""
+"""Pythmc - Renderer, HUD, and Visual Effects - V2.3"""
 
 import math
 import random
@@ -44,16 +44,8 @@ class ParticleSystem:
             self.particles.append(p)
 
     def update(self, dt):
-        alive = []
-        for p in self.particles:
-            p.vel[1] -= 12 * dt
-            p.pos[0] += p.vel[0] * dt
-            p.pos[1] += p.vel[1] * dt
-            p.pos[2] += p.vel[2] * dt
-            p.life -= dt
-            if p.life > 0:
-                alive.append(p)
-        self.particles = alive
+        from cuda_manager import gpu_update_particles
+        self.particles = gpu_update_particles(self.particles, dt)
 
     def draw(self):
         if not self.particles: return

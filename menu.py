@@ -10,6 +10,7 @@ import time
 from constants import *
 from text_renderer import text_renderer
 from settings_manager import settings_manager, DISPLAY_NAMES, RANGES, DEFAULTS
+from cuda_manager import get_cuda_status, is_cuda_available
 
 
 class Button:
@@ -420,9 +421,12 @@ TAB_SETTING_DEFS = {
     "World": [
         ("world", "day_speed", 0.001, False),
     ],
+    "GPU": [
+        ("gpu", "cuda_enabled", 1, True),
+    ],
 }
 
-TAB_NAMES = ["Graphics", "Audio", "Controls", "Physics", "World"]
+TAB_NAMES = ["Graphics", "Audio", "Controls", "Physics", "World", "GPU"]
 
 
 class SettingsMenu:
@@ -674,6 +678,20 @@ class SettingsMenu:
         # Setting buttons
         for btn in self.setting_buttons:
             btn.draw()
+
+        # GPU tab: show GPU info
+        if TAB_NAMES[self.tab_index] == "GPU":
+            status = get_cuda_status()
+            if status["available"]:
+                text_renderer.draw_text(cx - 165, cy + 200 - len(TAB_SETTING_DEFS["GPU"]) * 48 - 35,
+                    f"GPU: {status['gpu_name']}", size="small", color=(0.4, 0.8, 0.4))
+                text_renderer.draw_text(cx - 165, cy + 200 - len(TAB_SETTING_DEFS["GPU"]) * 48 - 55,
+                    "CUDA acceleration available", size="small", color=(0.5, 0.7, 0.5))
+            else:
+                text_renderer.draw_text(cx - 165, cy + 200 - len(TAB_SETTING_DEFS["GPU"]) * 48 - 35,
+                    f"GPU: {status['gpu_name']}", size="small", color=(0.8, 0.4, 0.4))
+                text_renderer.draw_text(cx - 165, cy + 200 - len(TAB_SETTING_DEFS["GPU"]) * 48 - 55,
+                    "Install CuPy + CUDA toolkit to enable", size="small", color=(0.7, 0.5, 0.5))
 
         # Done button
         self.done_button.draw()

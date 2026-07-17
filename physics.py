@@ -1,4 +1,4 @@
-"""Pythmc - Physics System V2.1 - Better Physics
+"""Pythmc - Physics System V2.3 - Better Physics + CUDA
 
 Features:
 - FallingBlock entities (explosion debris with force vectors)
@@ -7,6 +7,7 @@ Features:
 - Wind system (pushes water, affects particles)
 - Rain-ground interaction (puddles from heavy rain)
 - Block gravity (sand/gravel fall when unsupported)
+- V2.3: GPU-accelerated fluid simulation and particle updates via CUDA
 - Hyper-optimized (time-budgeted, spatial queries, dirty chunk batching)
 """
 
@@ -263,77 +264,14 @@ class FluidSim:
         return set()
 
     def _tick_fluid(self, fluid_type, world, wind, dt):
-        """Spread a single fluid type. BFS outward from sources."""
+        """Spread a single fluid type. GPU-accelerated BFS when available."""
+        from cuda_manager import gpu_fluid_spread_step
         sources = self.water_sources if fluid_type == WATER else self.lava_sources
         spread_max = WATER_SPREAD_MAX if fluid_type == WATER else LAVA_SPREAD_MAX
-        is_lava = fluid_type == LAVA
 
-        if not sources:
-            return
-
-        new_sources = set()
-        to_remove = set()
-
-        for sx, sy, sz in list(sources):
-            spread_dirs = [(0, -1, 0), (1, 0, 0), (-1, 0, 0),
-                           (0, 0, 1), (0, 0, -1)]
-
-            if wind and fluid_type == WATER:
-                wind_force = wind.get_force()
-                wx, wy, wz = wind_force
-                if abs(wx) > 0.5 or abs(wz) > 0.5:
-                    boost_x = 1 if wx > 1.0 else (-1 if wx < -1.0 else 0)
-                    boost_z = 1 if wz > 1.0 else (-1 if wz < -1.0 else 0)
-                    if (boost_x, 0, boost_z) not in spread_dirs and \
-                       (boost_x, 0, boost_z) != (0, 0, 0):
-                        spread_dirs.append((boost_x, 0, boost_z))
-
-            for dx, dy, dz in spread_dirs:
-                nx, ny, nz = sx + dx, sy + dy, sz + dz
-
-                if ny < 0 or ny >= CHUNK_HEIGHT:
-                    continue
-
-                nb = world.get_block(nx, ny, nz)
-                if nb != AIR:
-                    continue
-
-                dist = abs(nx - sx) + abs(ny - sy) + abs(nz - sz)
-                if dist > spread_max:
-                    continue
-
-                if not is_lava and nb == AIR:
-                    world.set_block(nx, ny, nz, fluid_type)
-                    new_sources.add((nx, ny, nz))
-
-                    cx, cz = world.world_to_chunk(nx, nz)
-                    self.dirty_chunks.add((cx, cz))
-                    for ddx, ddz in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                        nkey = (cx + ddx, cz + ddz)
-                        if nkey in world.chunks:
-                            self.dirty_chunks.add(nkey)
-
-        sources.update(new_sources)
-
-        if fluid_type == WATER:
-            sources_to_remove = set()
-            for sx, sy, sz in list(sources):
-                block = world.get_block(sx, sy, sz)
-                if block != fluid_type:
-                    sources_to_remove.add((sx, sy, sz))
-                else:
-                    has_source_neighbor = False
-                    for dx, dy, dz in [(0, 1, 0), (1, 0, 0), (-1, 0, 0),
-                                       (0, 0, 1), (0, 0, -1)]:
-                        nb = world.get_block(sx + dx, sy + dy, sz + dz)
-                        if nb == fluid_type:
-                            has_source_neighbor = True
-                            break
-                    if not has_source_neighbor and sy > 0:
-                        below = world.get_block(sx, sy - 1, sz)
-                        if below != fluid_type:
-                            sources_to_remove.add((sx, sy, sz))
-            sources -= sources_to_remove
+        sources, dirty = gpu_fluid_spread_step(
+            sources, fluid_type, world, spread_max, wind)
+        self.dirty_chunks.update(dirty)
 
     def _rain_puddle(self, world, rain_intensity, player_pos):
         """Place water on exposed surfaces during heavy rain."""

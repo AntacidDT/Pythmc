@@ -2,7 +2,7 @@
 
 **Full name:** Pythmc (Python Minecraft)
 **Engine:** Pythkernel
-**Version:** V2.2 - Natural Disasters
+**Version:** V2.3 - The CUDA Update
 **Language:** Python 3
 **Graphics:** PyOpenGL (immediate mode)
 **Audio:** Pygame mixer

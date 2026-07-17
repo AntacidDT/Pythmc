@@ -363,10 +363,8 @@ class HUD:
         glDisable(GL_BLEND)
 
 
-def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None, first_person=False, held_item=None):
-    """Draw player body with head, body, arms, legs and armor overlay.
-    If first_person=True, head/eyes are hidden (camera IS the head) and
-    a held_item cube is drawn at the right hand tip."""
+def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None):
+    """Draw player body with head, body, arms, legs and armor overlay."""
     glPushMatrix()
     glTranslatef(x, y, z)
     glRotatef(yaw, 0, 1, 0)
@@ -475,60 +473,212 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
     glPopMatrix()
     
-    # Right arm (with held item in first-person)
+    # Right arm
     glPushMatrix()
     glTranslatef(body_w/2 + arm_w/2, arm_y + arm_h, 0)
     glRotatef(-arm_swing, 1, 0, 0)
     glTranslatef(0, -arm_h, 0)
     _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
+    glPopMatrix()
     
-    # In first-person, draw held block on the hand
-    if first_person and held_item and held_item in ITEM_COLORS:
+    # Head
+    head_y_pos = head_y
+    _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
+    _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
+    
+    # Eyes
+    eye_y = head_y_pos + head_h * 0.55
+    eye_z = -head_w/2 - 0.001
+    glColor3f(1, 1, 1)
+    glBegin(GL_QUADS)
+    glVertex3f(-0.15, eye_y, eye_z)
+    glVertex3f(-0.05, eye_y, eye_z)
+    glVertex3f(-0.05, eye_y + 0.08, eye_z)
+    glVertex3f(-0.15, eye_y + 0.08, eye_z)
+    glVertex3f(0.05, eye_y, eye_z)
+    glVertex3f(0.15, eye_y, eye_z)
+    glVertex3f(0.15, eye_y + 0.08, eye_z)
+    glVertex3f(0.05, eye_y + 0.08, eye_z)
+    glEnd()
+    
+    # Pupils
+    glColor3f(*eye_color)
+    pupil_z = eye_z - 0.001
+    glBegin(GL_QUADS)
+    glVertex3f(-0.13, eye_y + 0.01, pupil_z)
+    glVertex3f(-0.07, eye_y + 0.01, pupil_z)
+    glVertex3f(-0.07, eye_y + 0.06, pupil_z)
+    glVertex3f(-0.13, eye_y + 0.06, pupil_z)
+    glVertex3f(0.07, eye_y + 0.01, pupil_z)
+    glVertex3f(0.13, eye_y + 0.01, pupil_z)
+    glVertex3f(0.13, eye_y + 0.06, pupil_z)
+    glVertex3f(0.07, eye_y + 0.06, pupil_z)
+    glEnd()
+
+    glPopMatrix()
+
+
+def draw_first_person_body(player, screen_w, screen_h):
+    """Draw the player's body in first-person as an orthographic viewmodel.
+    Shows torso, arms, legs from above (like looking down at yourself).
+    No head (camera IS the head)."""
+    glDisable(GL_LIGHTING)
+    glDisable(GL_FOG)
+    glDisable(GL_DEPTH_TEST)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    glOrtho(0, screen_w, 0, screen_h, -1, 1)
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    colors = get_character_colors()
+    skin = colors.get("skin", (0.90, 0.75, 0.60))
+    shirt = colors.get("shirt", (0.20, 0.40, 0.70))
+    pants = colors.get("pants", (0.30, 0.30, 0.60))
+
+    swing = getattr(player, 'arm_swing', 0)
+
+    # Walk bob
+    bob = 0
+    if player.on_ground and not player.flying:
+        speed = abs(player.velocity[0]) + abs(player.velocity[2])
+        if speed > 0.5:
+            bob = math.sin(player.walk_cycle * 2) * 6
+    elif player.in_water:
+        bob = math.sin(player.walk_cycle * 1.5) * 4
+
+    # Eat animation
+    eat_lift = 0
+    if player.eating:
+        eat_progress = min(1.0, player.eat_timer / player.eat_duration)
+        eat_lift = math.sin(eat_progress * math.pi) * 50
+
+    # Center-bottom anchor (like Minecraft body from above)
+    cx = screen_w // 2
+    base_y = -20 + bob * 0.3 - eat_lift * 0.3
+
+    # ── Leg swing (walking animation) ──
+    leg_swing = math.sin(player.walk_cycle) * 8 if player.walk_cycle else 0
+
+    # ── Left leg ──
+    ll_x = cx - 22
+    ll_y = base_y
+    ll_w = 18
+    ll_h = 40
+    glColor4f(pants[0], pants[1], pants[2], 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(ll_x - leg_swing, ll_y)
+    glVertex2f(ll_x + ll_w - leg_swing, ll_y)
+    glVertex2f(ll_x + ll_w - leg_swing, ll_y + ll_h)
+    glVertex2f(ll_x - leg_swing, ll_y + ll_h)
+    glEnd()
+
+    # ── Right leg ──
+    rl_x = cx + 4
+    rl_y = base_y
+    rl_w = 18
+    rl_h = 40
+    glColor4f(pants[0] * 0.9, pants[1] * 0.9, pants[2] * 0.9, 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(rl_x + leg_swing, rl_y)
+    glVertex2f(rl_x + rl_w + leg_swing, rl_y)
+    glVertex2f(rl_x + rl_w + leg_swing, rl_y + rl_h)
+    glVertex2f(rl_x + leg_swing, ll_y + rl_h)
+    glEnd()
+
+    # ── Torso ──
+    t_x = cx - 26
+    t_y = base_y + ll_h - 2
+    t_w = 52
+    t_h = 55
+    # Front face
+    glColor4f(shirt[0], shirt[1], shirt[2], 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(t_x, t_y)
+    glVertex2f(t_x + t_w, t_y)
+    glVertex2f(t_x + t_w, t_y + t_h)
+    glVertex2f(t_x, t_y + t_h)
+    glEnd()
+    # Slightly darker bottom edge for depth
+    glColor4f(shirt[0] * 0.8, shirt[1] * 0.8, shirt[2] * 0.8, 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(t_x, t_y)
+    glVertex2f(t_x + t_w, t_y)
+    glVertex2f(t_x + t_w, t_y + 6)
+    glVertex2f(t_x, t_y + 6)
+    glEnd()
+
+    # ── Left arm ──
+    la_x = t_x - 18
+    la_y = t_y + t_h * 0.3
+    la_w = 16
+    la_h = 50
+    arm_swing_offset = swing * 0.3
+    glColor4f(skin[0], skin[1], skin[2], 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(la_x + arm_swing_offset, la_y)
+    glVertex2f(la_x + la_w + arm_swing_offset, la_y)
+    glVertex2f(la_x + la_w + arm_swing_offset, la_y + la_h)
+    glVertex2f(la_x + arm_swing_offset, la_y + la_h)
+    glEnd()
+
+    # ── Right arm (with held block) ──
+    ra_x = t_x + t_w + 2
+    ra_y = t_y + t_h * 0.3
+    ra_w = 16
+    ra_h = 50
+    # Swing the right arm more when breaking
+    glColor4f(skin[0] * 0.92, skin[1] * 0.92, skin[2] * 0.92, 0.95)
+    glBegin(GL_QUADS)
+    glVertex2f(ra_x - arm_swing_offset, ra_y)
+    glVertex2f(ra_x + ra_w - arm_swing_offset, ra_y)
+    glVertex2f(ra_x + ra_w - arm_swing_offset, ra_y + ra_h)
+    glVertex2f(ra_x - arm_swing_offset, ra_y + ra_h)
+    glEnd()
+
+    # ── Held block on right hand ──
+    held_item = player.hotbar[player.selected_slot]
+    if held_item and held_item in ITEM_COLORS:
         c = ITEM_COLORS[held_item][1]
-        bs = 0.3
-        bx = -bs / 2
-        by = arm_h + 0.05
-        bz = -bs / 2
-        _draw_cube(bx, by, bz, bx + bs, by + bs, bz + bs, c)
-    
-    glPopMatrix()
-    
-    # Head and eyes (skip in first-person — camera IS the head)
-    if not first_person:
-        head_y_pos = head_y
-        _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
-        _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
-        
-        # Eyes
-        eye_y = head_y_pos + head_h * 0.55
-        eye_z = -head_w/2 - 0.001
-        glColor3f(1, 1, 1)
+        bx = ra_x + 1 - arm_swing_offset
+        by = ra_y + ra_h + 4
+        bs = 22
+        # Front face
+        glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.95)
         glBegin(GL_QUADS)
-        glVertex3f(-0.15, eye_y, eye_z)
-        glVertex3f(-0.05, eye_y, eye_z)
-        glVertex3f(-0.05, eye_y + 0.08, eye_z)
-        glVertex3f(-0.15, eye_y + 0.08, eye_z)
-        glVertex3f(0.05, eye_y, eye_z)
-        glVertex3f(0.15, eye_y, eye_z)
-        glVertex3f(0.15, eye_y + 0.08, eye_z)
-        glVertex3f(0.05, eye_y + 0.08, eye_z)
+        glVertex2f(bx, by)
+        glVertex2f(bx + bs, by)
+        glVertex2f(bx + bs, by + bs)
+        glVertex2f(bx, by + bs)
         glEnd()
-        
-        # Pupils
-        glColor3f(*eye_color)
-        pupil_z = eye_z - 0.001
+        # Top face (lighter)
+        glColor4f(c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 0.95)
         glBegin(GL_QUADS)
-        glVertex3f(-0.13, eye_y + 0.01, pupil_z)
-        glVertex3f(-0.07, eye_y + 0.01, pupil_z)
-        glVertex3f(-0.07, eye_y + 0.06, pupil_z)
-        glVertex3f(-0.13, eye_y + 0.06, pupil_z)
-        glVertex3f(0.07, eye_y + 0.01, pupil_z)
-        glVertex3f(0.13, eye_y + 0.01, pupil_z)
-        glVertex3f(0.13, eye_y + 0.06, pupil_z)
-        glVertex3f(0.07, eye_y + 0.06, pupil_z)
+        glVertex2f(bx - 4, by + bs)
+        glVertex2f(bx + bs - 4, by + bs)
+        glVertex2f(bx + bs, by + bs + 6)
+        glVertex2f(bx, by + bs + 6)
         glEnd()
-    
+        # Right face (darker)
+        glColor4f(c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 0.95)
+        glBegin(GL_QUADS)
+        glVertex2f(bx + bs, by)
+        glVertex2f(bx + bs + 4, by + 6)
+        glVertex2f(bx + bs + 4, by + bs + 6)
+        glVertex2f(bx + bs, by + bs)
+        glEnd()
+
+    glDisable(GL_BLEND)
     glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
+    glEnable(GL_DEPTH_TEST)
 
 
 def draw_first_person_hand(player, screen_w, screen_h):

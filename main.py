@@ -31,7 +31,7 @@ from entities import EntityManager, ItemDrop
 from renderer import (
     ParticleSystem, CloudRenderer, HUD,
     draw_target_block, update_sky, init_gl, draw_player_body,
-    draw_falling_blocks, get_character_colors
+    draw_falling_blocks, get_character_colors, draw_first_person_body
 )
 from menu import MainMenu, PauseMenu, SettingsMenu, CharacterCustomizationScreen
 from inventory_ui import CraftingUI
@@ -910,17 +910,9 @@ class Game:
                 colors=get_character_colors()
             )
         else:
-            # First-person: camera IS the head, draw body (no head) in 3D
-            draw_player_body(
-                self.player.pos[0], self.player.pos[1], self.player.pos[2],
-                self.player.yaw, self.player.pitch,
-                self.player.arm_swing, self.player.walk_cycle,
-                armor_slots=armor_dict,
-                is_sneaking=self.player.sneaking,
-                colors=get_character_colors(),
-                first_person=True,
-                held_item=held
-            )
+            # First-person: draw body in a separate orthographic pass
+            # This avoids near-plane crashes from geometry at camera position
+            draw_first_person_body(self.player, SCREEN_W, SCREEN_H)
 
         # Entities and items
         self.entity_manager.draw()

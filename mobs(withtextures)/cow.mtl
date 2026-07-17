@@ -1,0 +1,26 @@
+# Cow material file for Pythmc
+# Maps Blockbench materials to textures
+
+newmtl m_c8083ab4-ce05-3d33-1573-c1add38d5334
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd cow_leg_texture.png
+
+newmtl m_0d8363b0-659c-9998-24eb-df48eef68723
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd cow_head_texture.png
+
+newmtl m_6020cefd-a477-8455-c185-740fc611e6d6
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd cow_torso_Texture.png
+
+newmtl m_f78aa79f-db21-5b62-6747-08835f260438
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd cow_milk_area_texture.png

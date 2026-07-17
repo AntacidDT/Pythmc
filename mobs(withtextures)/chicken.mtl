@@ -1,0 +1,31 @@
+# Chicken material file for Pythmc
+
+newmtl m_37f4de46-a8cd-03f6-ead4-951218a544b2
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd chicken_torso_Texture.png
+
+newmtl m_da1e7d91-3974-8703-5247-40b3369a69a4
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd chicken_leg_Texture.png
+
+newmtl m_0993410f-5ac4-1dea-7497-e33eb670befa
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd chicken_head_Texture.png
+
+newmtl m_83c7c7b7-520d-5b51-5323-bcfa7aa06220
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd chicken_beak_texture.png
+
+newmtl m_e9cd8f11-e7d4-5e10-ba14-374b00b91dfc
+Ka 0.2 0.2 0.2
+Kd 0.8 0.8 0.8
+Ks 0.0 0.0 0.0
+map_Kd chicken_eye_texture.png

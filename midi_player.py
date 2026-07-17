@@ -488,7 +488,7 @@ class MidiPlayer:
         self._silence_duration = 3.0
 
     def load(self):
-        """Scan music directory for .mid files and synthesize them."""
+        """Scan music directory for .mid files (no synthesis yet — lazy)."""
         self.songs = []
         if not os.path.isdir(self.music_dir):
             os.makedirs(self.music_dir, exist_ok=True)
@@ -497,17 +497,11 @@ class MidiPlayer:
         for fname in sorted(os.listdir(self.music_dir)):
             if fname.lower().endswith(('.mid', '.midi')):
                 path = os.path.join(self.music_dir, fname)
-                try:
-                    print(f"  Music: Loading {fname}...")
-                    sound = load_midi_file(path, volume=self._volume)
-                    if sound:
-                        self.songs.append((fname, sound))
-                except Exception as e:
-                    print(f"  Music: Failed to load {fname}: {e}")
+                self.songs.append((fname, path, None))
 
         if self.songs:
             random.shuffle(self.songs)
-            print(f"  Music: {len(self.songs)} songs loaded")
+            print(f"  Music: {len(self.songs)} MIDI files found")
         else:
             print("  Music: No .mid files found in music/")
 
@@ -560,11 +554,26 @@ class MidiPlayer:
         if not self.songs or not self._channel:
             return
         idx = self.current_index % len(self.songs)
-        name, sound = self.songs[idx]
-        self._current_sound = sound
+        name, path, cached_sound = self.songs[idx]
+
+        if cached_sound is None:
+            try:
+                print(f"  Music: Synthesizing {name}...")
+                cached_sound = load_midi_file(path, volume=self._volume)
+                self.songs[idx] = (name, path, cached_sound)
+            except Exception as e:
+                print(f"  Music: Failed to synthesize {name}: {e}")
+                self._advance_song()
+                return
+
+        if cached_sound is None:
+            self._advance_song()
+            return
+
+        self._current_sound = cached_sound
         try:
             self._channel.set_volume(self._volume)
-            self._channel.play(sound)
+            self._channel.play(cached_sound)
             print(f"  Music: Now playing: {name}")
         except Exception:
             pass

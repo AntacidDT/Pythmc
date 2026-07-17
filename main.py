@@ -30,7 +30,8 @@ from player import Player
 from entities import EntityManager, ItemDrop
 from renderer import (
     ParticleSystem, CloudRenderer, HUD,
-    draw_target_block, update_sky, init_gl, draw_player_body
+    draw_target_block, update_sky, init_gl, draw_player_body,
+    draw_falling_blocks
 )
 from menu import MainMenu, PauseMenu, SettingsMenu
 from inventory_ui import CraftingUI
@@ -47,6 +48,9 @@ from atmosphere import AtmosphereRenderer
 from voice import voice_chat
 from credits import CreditsScreen
 from furnace_ui import FurnaceUI
+from settings_manager import settings_manager
+from io_system import io_manager
+from physics import PhysicsManager
 import world_manager
 
 
@@ -112,9 +116,9 @@ class Game:
         self.hud = None
         self.atmosphere = None
 
-        self.sensitivity = 0.15
+        self.sensitivity = settings_manager.get("screen", "sensitivity")
         self.day_time = 0.25
-        self.day_speed = 0.005
+        self.day_speed = settings_manager.get("world", "day_speed")
         self.world_time = 0.0
 
         self.last_break = 0
@@ -122,7 +126,13 @@ class Game:
         self.fps_counter = 0
         self.fps_display = 0
         self.fps_timer = 0
-        
+
+        # V2.0 stat tracking
+        self.blocks_dug_session = 0
+        self.blocks_placed_session = 0
+        self.days_survived = 0
+        self.day_accumulator = 0.0
+
         self._load_mob_models()
 
     def _load_mob_models(self):
@@ -171,16 +181,48 @@ class Game:
         self.clouds = CloudRenderer(seed)
         self.atmosphere = AtmosphereRenderer(seed)
         self.hud = HUD(SCREEN_W, SCREEN_H)
+        self.physics = PhysicsManager()
         self.day_time = 0.25
         self.world_time = 0.0
-        
+
+        # V2.0 stat tracking
+        self.blocks_dug_session = 0
+        self.blocks_placed_session = 0
+        self.days_survived = 0
+        self.day_accumulator = 0.0
+
+        # Apply per-world settings
+        ws = world_meta.get("world_settings", {}) if world_meta else {}
+        if ws:
+            for cat, vals in ws.items():
+                for key, val in vals.items():
+                    self._apply_setting(cat, key, val)
+
+        # Load IO
+        if self.current_world_name:
+            io_manager.load_from_world(self.current_world_name)
+
         if multiplayer.is_connected():
             voice_chat.init(str(id(self)), multiplayer.client.server_ip if multiplayer.client else None)
+
+        pcx, pcz = self.world.world_to_chunk(int(self.player.pos[0]), int(self.player.pos[2]))
+        self.physics.init(self.world, pcx, pcz)
+
+    def _apply_setting(self, category, key, value):
+        """Apply a setting value to the game."""
+        import constants as const
+        if hasattr(const, key.upper()):
+            setattr(const, key.upper(), value)
 
     def _save_and_exit(self):
         if self.current_world_name and self.current_world_meta:
             session_time = time.time() - self.play_session_start
             world_manager.update_play_time(self.current_world_name, session_time)
+
+            # Save V2.0 stats
+            world_manager.increment_stat(self.current_world_name, "blocks_dug", self.blocks_dug_session)
+            world_manager.increment_stat(self.current_world_name, "blocks_placed", self.blocks_placed_session)
+            world_manager.increment_stat(self.current_world_name, "days_survived", self.days_survived)
             
             player_data = {
                 "pos": self.player.pos.tolist(),
@@ -202,6 +244,9 @@ class Game:
                 "selected_slot": self.player.selected_slot,
             }
             world_manager.save_player_data(self.current_world_name, player_data)
+
+            # Save IO
+            io_manager.save_to_world(self.current_world_name)
         
         self.world = None
         self.player = None
@@ -315,6 +360,8 @@ class Game:
                             result["gamemode"],
                             result["seed"],
                             result["show_coords"],
+                            result.get("io_enabled", False),
+                            result.get("world_settings", None),
                         )
                         self._init_game(meta)
                         self.state = GameState.PLAYING
@@ -464,6 +511,14 @@ class Game:
         if block == BEDROCK and not self.player.creative:
             return
         if block != AIR:
+            # V2.1: TNT ignition
+            if block == TNT:
+                self.world.set_block(x, y, z, AIR)
+                self.physics.trigger_tnt(x, y, z, self.world, self.entity_manager)
+                sound_manager.play('entity_hurt', 0.8)
+                self.last_break = now
+                return
+
             self.world.set_block(x, y, z, AIR)
             self.particles.emit((x, y, z), block, 15)
             
@@ -479,6 +534,8 @@ class Game:
             
             self._play_break_sound(block)
             self.last_break = now
+            self.blocks_dug_session += 1
+            self.physics.on_block_removed(x, y, z, block)
             cx, cz = self.world.world_to_chunk(x, z)
             key = self.world.get_chunk_key(cx, cz)
             if key in self.world.chunks:
@@ -552,7 +609,7 @@ class Game:
         if self.player._pos_occupied(px, py, pz):
             return
         existing = self.world.get_block(px, py, pz)
-        if existing not in (AIR, WATER):
+        if existing not in (AIR, WATER, LAVA):
             return
         
         # Check if it's a placeable block (not a food/tool)
@@ -560,6 +617,8 @@ class Game:
             return
         
         self.world.set_block(px, py, pz, block_type)
+        self.physics.on_block_placed(px, py, pz, block_type)
+        self.blocks_placed_session += 1
         # Consume item in survival
         if not self.player.creative:
             slot = self.player.inventory.hotbar[self.player.selected_slot]
@@ -575,11 +634,11 @@ class Game:
             self.world.dirty_chunks.discard(key)
 
     def _play_break_sound(self, block):
-        if block in (STONE, COBBLESTONE, IRON_ORE, GOLD_ORE, COAL_ORE, BEDROCK, DIAMOND_ORE):
+        if block in (STONE, COBBLESTONE, IRON_ORE, GOLD_ORE, COAL_ORE, BEDROCK, DIAMOND_ORE, OBSIDIAN):
             sound_manager.play('break_stone')
         elif block in (DIRT, GRASS):
             sound_manager.play('break_dirt')
-        elif block in (SAND, GRAVEL):
+        elif block in (SAND, GRAVEL, CLAY):
             sound_manager.play('break_sand')
         elif block in (WOOD, PLANKS):
             sound_manager.play('break_wood')
@@ -587,6 +646,10 @@ class Game:
             sound_manager.play('break_glass')
         elif block == LEAVES:
             sound_manager.play('break_grass')
+        elif block == TNT:
+            sound_manager.play('break_wood')
+        elif block == LAVA:
+            sound_manager.play('break_stone')
         else:
             sound_manager.play('break_stone')
 
@@ -600,7 +663,8 @@ class Game:
                 voice_chat.update_other_players(multiplayer.get_other_players())
         
         if self.atmosphere:
-            self.atmosphere.update(dt, self.player.pos, self.day_time, self.world)
+            self.atmosphere.update(dt, self.player.pos, self.day_time, self.world,
+                                   self.physics.wind)
         
         # Footstep sounds
         if self.player.on_ground and not self.player.flying:
@@ -655,11 +719,46 @@ class Game:
 
         self.particles.update(dt)
 
+        # V2.1: Physics update (falling blocks, fluid sim, wind, block gravity)
+        rain_int = 0.0
+        if self.atmosphere:
+            rain_int = self.atmosphere.weather.rain_intensity
+        physics_dirty = self.physics.update(
+            dt, self.world, self.player.pos, self.day_time, rain_int)
+        for cx, cz in physics_dirty:
+            if (cx, cz) in self.world.chunks:
+                self.world.chunks[(cx, cz)].mesh_dirty = True
+                self.world.dirty_chunks.add((cx, cz))
+
         pcx, pcz = self.world.world_to_chunk(int(self.player.pos[0]), int(self.player.pos[2]))
         self.world.update(pcx, pcz)
 
         self.world_time += dt
         self.day_time = (self.day_time + self.day_speed * dt) % 1.0
+
+        # V2.0: Track days survived
+        self.day_accumulator += self.day_speed * dt
+        if self.day_accumulator >= 1.0:
+            self.day_accumulator -= 1.0
+            self.days_survived += 1
+
+        # V2.0: IO trigger check
+        if io_manager.enabled and self.current_world_name:
+            game_state = {
+                "health_below": self.player.health,
+                "health_above": self.player.health,
+                "hunger_below": self.player.hunger,
+                "hunger_above": self.player.hunger,
+                "daytime_below": self.day_time,
+                "daytime_above": self.day_time,
+                "position_above_y": self.player.pos[1],
+                "position_below_y": self.player.pos[1],
+                "blocks_placed_above": self.blocks_placed_session,
+                "blocks_dug_above": self.blocks_dug_session,
+                "days_survived_above": self.days_survived,
+                "inventory_has": 0,
+            }
+            io_manager.update(game_state)
 
         self.fps_timer += dt
         self.fps_counter += 1
@@ -724,6 +823,9 @@ class Game:
         # Entities and items
         self.entity_manager.draw()
 
+        # V2.1: Falling blocks (explosion debris)
+        draw_falling_blocks(self.physics.falling_blocks)
+
         # Other players
         self._draw_other_players()
 
@@ -756,7 +858,12 @@ class Game:
         draw_target_block(hit, FACE_VERTS)
 
         # HUD
-        self.hud.draw(self.player)
+        stats = {
+            "days": self.days_survived,
+            "dug": self.blocks_dug_session,
+            "placed": self.blocks_placed_session,
+        }
+        self.hud.draw(self.player, stats=stats)
 
         # Crafting UI
         self.crafting_ui.draw(self.player.inventory)
@@ -875,7 +982,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V1.9 - The General Update")
+        print("  V2.1 - Better Physics")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -908,7 +1015,7 @@ class Game:
                     tp = "[TP]" if self.player.third_person else ""
                     mobs = f"Mobs:{len(self.entity_manager.entities)}"
                     px, py, pz = self.player.pos
-                    caption = f"Pythmc V1.9 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                    caption = f"Pythmc V2.1 | {mode} {fly}{sprint}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                     pygame.display.set_caption(caption)
 
             elif self.state == GameState.PAUSED:

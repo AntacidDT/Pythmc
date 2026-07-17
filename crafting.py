@@ -268,6 +268,25 @@ _add([[PLANKS, WIRE_COPPER_ITEM, PLANKS],
 _add([[SILICON_WAFER, WIRE_COPPER_ITEM]], DIODE, 2)
 _add([[RESISTOR_1K, STICK, IRON_INGOT]], POTENTIOMETER)
 
+# ─── V2.1 Recipes ────────────────────────────────────────────────────────────
+
+_add([[SAND, COAL, SAND],
+      [COAL, SAND, COAL],
+      [SAND, COAL, SAND]], TNT, 2)
+
+_add([[OBSIDIAN, OBSIDIAN, OBSIDIAN],
+      [OBSIDIAN, DIAMOND, OBSIDIAN],
+      [OBSIDIAN, OBSIDIAN, OBSIDIAN]], OBSIDIAN)
+
+_add([[CLAY, CLAY],
+      [CLAY, CLAY]], BRICK, 4)
+
+_add([[SPONGE]], SPONGE)
+
+_add([[WOOD, COAL, WOOD],
+      [COAL, GLASS, COAL],
+      [WOOD, COAL, WOOD]], GLOWSTONE, 2)
+
 
 def find_recipe(grid, grid_size=3):
     """Find a matching recipe for the given crafting grid."""

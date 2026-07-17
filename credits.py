@@ -124,7 +124,7 @@ class CreditsScreen:
         y -= 30
 
         # Credits
-        text_renderer.draw_text_centered(cx, y, "CREATED BY", 
+        text_renderer.draw_text_centered(cx, y, "MADE BY", 
                                         "small", (0.5, 0.5, 0.55))
         y -= 25
         text_renderer.draw_text_centered_shadow(cx, y, "AntacidDT", 

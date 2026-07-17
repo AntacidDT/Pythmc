@@ -1,9 +1,10 @@
-"""Pythmc - Renderer, HUD, and Visual Effects - V1.9"""
+"""Pythmc - Renderer, HUD, and Visual Effects - V2.1"""
 
 import math
 import random
 from OpenGL.GL import *
 from text_renderer import text_renderer
+from textures import texture_manager
 from OpenGL.GLU import *
 from constants import *
 
@@ -115,7 +116,7 @@ class HUD:
         self.screen_w = screen_w
         self.screen_h = screen_h
 
-    def draw(self, player):
+    def draw(self, player, stats=None):
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_LIGHTING)
         glDisable(GL_FOG)
@@ -180,6 +181,16 @@ class HUD:
             if armor > 0:
                 self._draw_armor_bar(sx, sy + 66, armor)
             self._draw_hunger_bar(sx + 200, sy + 50, player)
+
+        # V2.0: Stats display (top right)
+        if stats:
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            sx_r = self.screen_w - 10
+            text_renderer.draw_text(sx_r - 120, self.screen_h - 20, f"Day: {stats.get('days', 0)}", "small", (0.7, 0.7, 0.75))
+            text_renderer.draw_text(sx_r - 120, self.screen_h - 36, f"Dug: {stats.get('dug', 0)}", "small", (0.7, 0.7, 0.75))
+            text_renderer.draw_text(sx_r - 120, self.screen_h - 52, f"Placed: {stats.get('placed', 0)}", "small", (0.7, 0.7, 0.75))
+            glDisable(GL_BLEND)
 
         # Eating animation
         if player.eating:
@@ -580,6 +591,61 @@ def _draw_celestial(sun_angle, brightness):
     
     glDisable(GL_BLEND)
     glEnable(GL_DEPTH_TEST)
+    glEnable(GL_FOG)
+    glEnable(GL_LIGHTING)
+
+
+def draw_falling_blocks(falling_blocks):
+    """Draw falling block entities (explosion debris)."""
+    if not falling_blocks:
+        return
+    glDisable(GL_LIGHTING)
+    glDisable(GL_FOG)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    texture_manager.bind()
+
+    for fb in falling_blocks:
+        bx, by, bz = fb.pos[0], fb.pos[1], fb.pos[2]
+        hs = 0.45
+        colors = BLOCK_COLORS.get(fb.block_type, ((0.6, 0.6, 0.6), (0.5, 0.5, 0.5), (0.4, 0.4, 0.4)))
+        c = colors[0]
+
+        glPushMatrix()
+        glTranslatef(bx, by, bz)
+        glRotatef(fb.rotation, 1, 0.5, 0.3)
+        glColor4f(c[0], c[1], c[2], fb.alpha)
+
+        glBegin(GL_QUADS)
+        glVertex3f(-hs, -hs, hs)
+        glVertex3f(hs, -hs, hs)
+        glVertex3f(hs, hs, hs)
+        glVertex3f(-hs, hs, hs)
+        glVertex3f(hs, -hs, -hs)
+        glVertex3f(-hs, -hs, -hs)
+        glVertex3f(-hs, hs, -hs)
+        glVertex3f(hs, hs, -hs)
+        glVertex3f(-hs, hs, hs)
+        glVertex3f(hs, hs, hs)
+        glVertex3f(hs, hs, -hs)
+        glVertex3f(-hs, hs, -hs)
+        glVertex3f(-hs, -hs, -hs)
+        glVertex3f(hs, -hs, -hs)
+        glVertex3f(hs, -hs, hs)
+        glVertex3f(-hs, -hs, hs)
+        glVertex3f(hs, -hs, hs)
+        glVertex3f(hs, -hs, -hs)
+        glVertex3f(hs, hs, -hs)
+        glVertex3f(hs, hs, hs)
+        glVertex3f(-hs, -hs, -hs)
+        glVertex3f(-hs, -hs, hs)
+        glVertex3f(-hs, hs, hs)
+        glVertex3f(-hs, hs, -hs)
+        glEnd()
+        glPopMatrix()
+
+    texture_manager.unbind()
+    glDisable(GL_BLEND)
     glEnable(GL_FOG)
     glEnable(GL_LIGHTING)
 

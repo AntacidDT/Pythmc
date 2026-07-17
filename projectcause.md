@@ -1,7 +1,8 @@
 # Pythmc - Complete Project Documentation
 
 **Full name:** Pythmc (Python Minecraft)
-**Version:** V1.9 - The General Update
+**Engine:** Pythkernel
+**Version:** V2.1 - Better Physics
 **Language:** Python 3
 **Graphics:** PyOpenGL (immediate mode)
 **Audio:** Pygame mixer

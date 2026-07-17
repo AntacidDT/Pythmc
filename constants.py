@@ -1,4 +1,4 @@
-"""Pythmc - Constants and Block Types - V1.9 The General Update"""
+"""Pythmc - Constants and Block Types - V2.1 Better Physics"""
 
 # ─── Screen ──────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 1280, 720
@@ -23,6 +23,14 @@ BREAK_COOLDOWN = 0.2
 PLACE_COOLDOWN = 0.2
 MAX_REACH = 6.0
 WATER_DRAG = 0.6
+FLUID_TICK_RATE = 0.25
+WATER_SPREAD_MAX = 7
+LAVA_SPREAD_MAX = 4
+LAVA_TICK_RATE = 1.0
+EXPLOSION_DEBRIS_LIFETIME = 3.0
+RAIN_PUDDLE_CHANCE = 0.002
+WIND_CHANGE_RATE = 0.1
+MAX_WIND_SPEED = 8.0
 
 # ─── Block Types ─────────────────────────────────────────────────────────────
 AIR = 0
@@ -48,6 +56,14 @@ GOLD_ORE = 19
 CRAFTING_TABLE_BLOCK = 20
 FURNACE_BLOCK = 21
 DIAMOND_ORE = 40
+LAVA = 41
+TNT = 42
+OBSIDIAN = 43
+CLAY = 44
+PODZOL = 45
+MYCELIUM = 46
+SPONGE = 47
+GLOWSTONE = 48
 
 # Electronic Blocks (22-39)
 WIRE_COPPER = 22
@@ -88,6 +104,8 @@ DIAMOND_PICKAXE = 121
 DIAMOND_AXE = 122
 DIAMOND_SWORD = 123
 DIAMOND_SHOVEL = 124
+TNT_ITEM = 125
+LAVA_BUCKET = 126
 
 # Crafted items (110-119)
 CRAFTING_TABLE = 110
@@ -193,6 +211,9 @@ BLOCK_NAMES = {
     CIRCUIT_BOARD: "Circuit Board", SILICON_BLOCK: "Silicon",
     COPPER_BLOCK: "Copper Block", NE555_BLOCK: "NE555 Timer",
     LOGIC_GATE: "Logic Gate", BUZZER_BLOCK: "Buzzer",
+    LAVA: "Lava", TNT: "TNT", OBSIDIAN: "Obsidian",
+    CLAY: "Clay", PODZOL: "Podzol", MYCELIUM: "Mycelium",
+    SPONGE: "Sponge", GLOWSTONE: "Glowstone",
 }
 
 ITEM_NAMES = {}
@@ -207,6 +228,7 @@ ITEM_NAMES.update({
     DIAMOND: "Diamond", DIAMOND_PICKAXE: "Diamond Pickaxe",
     DIAMOND_AXE: "Diamond Axe", DIAMOND_SWORD: "Diamond Sword",
     DIAMOND_SHOVEL: "Diamond Shovel",
+    TNT_ITEM: "TNT", LAVA_BUCKET: "Lava Bucket",
     RAW_BEEF: "Raw Beef", COOKED_BEEF: "Cooked Beef",
     RAW_CHICKEN: "Raw Chicken", COOKED_CHICKEN: "Cooked Chicken",
     RAW_MUTTON: "Raw Mutton", COOKED_MUTTON: "Cooked Mutton",
@@ -280,6 +302,14 @@ BLOCK_COLORS = {
     NE555_BLOCK:    ((0.20, 0.20, 0.22), (0.18, 0.18, 0.20), (0.16, 0.16, 0.18)),
     LOGIC_GATE:     ((0.25, 0.25, 0.28), (0.22, 0.22, 0.25), (0.20, 0.20, 0.22)),
     BUZZER_BLOCK:   ((0.80, 0.75, 0.20), (0.75, 0.70, 0.18), (0.70, 0.65, 0.16)),
+    LAVA:           ((0.90, 0.45, 0.05), (0.85, 0.35, 0.02), (0.95, 0.55, 0.10)),
+    TNT:            ((0.85, 0.15, 0.10), (0.20, 0.20, 0.20), (0.80, 0.12, 0.08)),
+    OBSIDIAN:       ((0.10, 0.05, 0.15), (0.12, 0.06, 0.18), (0.08, 0.04, 0.12)),
+    CLAY:           ((0.62, 0.58, 0.55), (0.58, 0.54, 0.50), (0.55, 0.50, 0.48)),
+    PODZOL:         ((0.45, 0.35, 0.20), (0.35, 0.25, 0.12), (0.40, 0.30, 0.18)),
+    MYCELIUM:       ((0.55, 0.48, 0.58), (0.50, 0.42, 0.52), (0.45, 0.38, 0.48)),
+    SPONGE:         ((0.75, 0.72, 0.20), (0.70, 0.68, 0.18), (0.65, 0.62, 0.15)),
+    GLOWSTONE:      ((0.85, 0.78, 0.40), (0.90, 0.82, 0.45), (0.80, 0.72, 0.35)),
 }
 
 ITEM_COLORS = {}
@@ -382,11 +412,16 @@ ITEM_COLORS.update({
     PUSH_BUTTON:     ((0.80, 0.20, 0.20), (0.75, 0.18, 0.18), (0.70, 0.15, 0.15)),
     RELAY:           ((0.30, 0.30, 0.32), (0.25, 0.25, 0.28), (0.20, 0.20, 0.22)),
     POTENTIOMETER:   ((0.40, 0.35, 0.30), (0.35, 0.30, 0.25), (0.30, 0.25, 0.20)),
+    TNT_ITEM:        ((0.85, 0.15, 0.10), (0.20, 0.20, 0.20), (0.80, 0.12, 0.08)),
+    LAVA_BUCKET:     ((0.70, 0.70, 0.72), (0.90, 0.45, 0.05), (0.85, 0.35, 0.02)),
 })
 
 # ─── Sets ────────────────────────────────────────────────────────────────────
-TRANSPARENT = {AIR, WATER, GLASS, LEAVES, TORCH, WIRE_COPPER, WIRE_GOLD}
-SOLID_BLOCKS = set(range(1, 100)) - {WATER, TORCH, WIRE_COPPER, WIRE_GOLD}
+TRANSPARENT = {AIR, WATER, LAVA, GLASS, LEAVES, TORCH, WIRE_COPPER, WIRE_GOLD}
+SOLID_BLOCKS = set(range(1, 100)) - {WATER, LAVA, TORCH, WIRE_COPPER, WIRE_GOLD}
+GRAVITY_BLOCKS = {SAND, GRAVEL}
+FLUID_BLOCKS = {WATER, LAVA}
+EXPLOSION_RESISTANT = {BEDROCK, OBSIDIAN}
 
 # ─── Face Data ───────────────────────────────────────────────────────────────
 FACE_DIRS = [(0,1,0),(0,-1,0),(1,0,0),(-1,0,0),(0,0,1),(0,0,-1)]
@@ -413,6 +448,11 @@ BLOCK_DROPS = {
     GLASS: [],
     CACTUS: [],
     BEDROCK: [],
+    TNT: [(TNT_ITEM, 1, 1)],
+    WATER: [],
+    LAVA: [],
+    OBSIDIAN: [],
+    GLOWSTONE: [(GLOWSTONE, 1, 2)],
 }
 
 # ─── Food Properties ─────────────────────────────────────────────────────────
@@ -454,6 +494,7 @@ FUEL_VALUES = {
     PLANKS: 1.5,
     STICK: 0.5,
     WOOD: 1.5,
+    LAVA_BUCKET: 20.0,
 }
 
 # ─── Tool Properties ─────────────────────────────────────────────────────────
@@ -473,10 +514,21 @@ TOOL_PROPERTIES = {
 }
 
 TOOL_EFFECTIVE = {
-    "pickaxe": {STONE, COBBLESTONE, IRON_ORE, GOLD_ORE, COAL_ORE, GLASS, BRICK, DIAMOND_ORE},
+    "pickaxe": {STONE, COBBLESTONE, IRON_ORE, GOLD_ORE, COAL_ORE, GLASS, BRICK, DIAMOND_ORE, OBSIDIAN},
     "axe":     {WOOD, PLANKS},
     "sword":   set(),
-    "shovel":  {DIRT, GRASS, SAND, GRAVEL},
+    "shovel":  {DIRT, GRASS, SAND, GRAVEL, CLAY, PODZOL, MYCELIUM},
+}
+
+# ─── Block Hardness (for explosions) ────────────────────────────────────────
+# Higher = harder to explode. TNT ignores hardness.
+BLOCK_HARDNESS = {
+    GLASS: 0.5, LEAVES: 0.5, SAND: 1.0, GRAVEL: 1.0, DIRT: 1.0, GRASS: 1.0,
+    COBBLESTONE: 3.0, STONE: 4.0, BRICK: 4.0, IRON_ORE: 5.0, GOLD_ORE: 5.0,
+    COAL_ORE: 3.0, DIAMOND_ORE: 6.0, WOOD: 2.0, PLANKS: 2.0, CLAY: 1.5,
+    SNOW: 0.3, CACTUS: 0.5, TNT: 0.0, SPONGE: 0.5, GLOWSTONE: 1.5,
+    COPPER_BLOCK: 5.0, SILICON_BLOCK: 6.0, CIRCUIT_BOARD: 1.0,
+    OBSIDIAN: 50.0, BEDROCK: 999.0,
 }
 
 # ─── Armor Properties ────────────────────────────────────────────────────────
@@ -596,6 +648,7 @@ ITEM_TO_BLOCK = {
     CRAFTING_TABLE: CRAFTING_TABLE_BLOCK,
     FURNACE: FURNACE_BLOCK,
     TORCH_ITEM: TORCH,
+    TNT_ITEM: TNT,
 }
 
 PLACEABLE_BLOCKS = set(BLOCK_NAMES.keys())

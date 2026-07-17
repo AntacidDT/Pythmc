@@ -2,6 +2,7 @@
 
 A 3D voxel game built from scratch using Python and OpenGL. No game engine — just raw OpenGL immediate mode, procedural textures, procedural sounds, and bundled dependencies.
 
+**Engine:** Pythkernel
 **Works on school computers. No pip install needed.**
 
 ## How to Run

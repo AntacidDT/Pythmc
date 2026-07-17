@@ -35,9 +35,14 @@ def list_worlds():
                     "gamemode": meta.get("gamemode", "creative"),
                     "seed": meta.get("seed", 42),
                     "show_coords": meta.get("show_coords", False),
+                    "io_enabled": meta.get("io_enabled", False),
                     "created": meta.get("created", 0),
                     "last_played": meta.get("last_played", 0),
                     "play_time": meta.get("play_time", 0),
+                    "days_survived": meta.get("days_survived", 0),
+                    "blocks_dug": meta.get("blocks_dug", 0),
+                    "blocks_placed": meta.get("blocks_placed", 0),
+                    "world_settings": meta.get("world_settings", {}),
                 })
             except:
                 pass
@@ -46,7 +51,8 @@ def list_worlds():
     return worlds
 
 
-def create_world(name, gamemode="survival", seed=None, show_coords=False):
+def create_world(name, gamemode="survival", seed=None, show_coords=False,
+                 io_enabled=False, world_settings=None):
     """Create a new world."""
     ensure_saves_dir()
     if seed is None:
@@ -63,9 +69,15 @@ def create_world(name, gamemode="survival", seed=None, show_coords=False):
         "gamemode": gamemode,
         "seed": seed,
         "show_coords": show_coords,
+        "io_enabled": io_enabled,
+        "io_triggers": [],
+        "world_settings": world_settings or {},
         "created": time.time(),
         "last_played": time.time(),
         "play_time": 0,
+        "days_survived": 0,
+        "blocks_dug": 0,
+        "blocks_placed": 0,
     }
     with open(os.path.join(world_dir, "world.json"), "w") as f:
         json.dump(meta, f, indent=2)
@@ -171,4 +183,20 @@ def update_play_time(name, seconds):
     if meta:
         meta["play_time"] = meta.get("play_time", 0) + seconds
         meta["last_played"] = time.time()
+        save_world_meta(name, meta)
+
+
+def increment_stat(name, stat, amount=1):
+    """Increment a stat (days_survived, blocks_dug, blocks_placed)."""
+    meta = load_world_meta(name)
+    if meta:
+        meta[stat] = meta.get(stat, 0) + amount
+        save_world_meta(name, meta)
+
+
+def set_stat(name, stat, value):
+    """Set a stat to a specific value."""
+    meta = load_world_meta(name)
+    if meta:
+        meta[stat] = value
         save_world_meta(name, meta)

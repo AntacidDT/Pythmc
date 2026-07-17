@@ -601,7 +601,7 @@ def raycast(world, origin, direction, max_dist=MAX_REACH):
     for _ in range(200):
         if dist >= max_dist: break
         block = world.get_block(x, y, z)
-        if block not in (AIR, WATER):
+        if block not in (AIR, WATER, LAVA):
             return (x, y, z), (last_x, last_y, last_z), block
         last_x, last_y, last_z = x, y, z
         if t_max_x < t_max_y:

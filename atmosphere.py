@@ -93,6 +93,7 @@ class AtmosphereRenderer:
     def __init__(self, seed):
         self.seed = seed
         self.weather = WeatherSystem()
+        self._wind = None
         
         # Ambient particles
         self.particles = []
@@ -119,9 +120,10 @@ class AtmosphereRenderer:
             brightness = rng.uniform(0.5, 1.0)
             self.stars.append((x, y, z, brightness))
     
-    def update(self, dt, player_pos, day_time, world):
+    def update(self, dt, player_pos, day_time, world, wind=None):
         """Update atmosphere effects."""
         self.weather.update(dt)
+        self._wind = wind
         
         # Spawn ambient particles
         self._update_ambient_particles(dt, player_pos, day_time)
@@ -168,6 +170,8 @@ class AtmosphereRenderer:
         
         # Update particles
         for p in self.particles:
+            if self._wind:
+                self._wind.apply_to_particle(p.vel, dt)
             p.pos[0] += p.vel[0] * dt
             p.pos[1] += p.vel[1] * dt
             p.pos[2] += p.vel[2] * dt
@@ -273,7 +277,7 @@ class AtmosphereRenderer:
         glEnable(GL_LIGHTING)
     
     def draw_rain(self, player_pos, rain_intensity):
-        """Draw rain particles."""
+        """Draw rain particles, wind-affected."""
         if rain_intensity < 0.1:
             return
         
@@ -281,6 +285,11 @@ class AtmosphereRenderer:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         
+        wind_x, wind_z = 0.0, 0.0
+        if self._wind:
+            wf = self._wind.get_force()
+            wind_x, wind_z = wf[0] * 0.3, wf[2] * 0.3
+
         # Rain drops
         num_drops = int(rain_intensity * 500)
         glLineWidth(1)
@@ -294,7 +303,7 @@ class AtmosphereRenderer:
             
             glColor4f(0.6, 0.7, 0.9, 0.3 * rain_intensity)
             glVertex3f(x, y, z)
-            glVertex3f(x - 0.1, y - 1.5, z - 0.1)
+            glVertex3f(x - 0.1 + wind_x, y - 1.5, z - 0.1 + wind_z)
         
         glEnd()
         glDisable(GL_BLEND)

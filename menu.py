@@ -79,6 +79,30 @@ class Button:
         glEnd()
 
 
+TIPS = [
+    "You can configure physics in Settings!",
+    "Press F5 to toggle third-person view!",
+    "Use / to open the console if cheats are on!",
+    "Right-click food to eat it!",
+    "Right-click a furnace to open smelting!",
+    "Diamond ore spawns below Y=15!",
+    "Press Alt+F2 for the debug overlay!",
+    "IO triggers can run commands on events!",
+    "Craft armor to reduce damage!",
+    "Sprint drains hunger faster!",
+    "Electronics have polarity - watch out!",
+    "Press E to open your inventory!",
+    "Right-click armor to equip it!",
+    "Leaves can drop apples!",
+    "You can configure world settings per-world!",
+    "Hold Space to swim up in water!",
+    "F3 shows coordinates if enabled!",
+    "Press G to freeze the day/night cycle!",
+    "Each world can have custom physics!",
+    "Press R to respawn when dead!",
+]
+
+
 class MainMenu:
     def __init__(self, screen_w, screen_h):
         self.screen_w = screen_w
@@ -102,6 +126,12 @@ class MainMenu:
         self.cam_yaw = 0
         self.world = None
         self.world_loaded = False
+
+        # Rotating tips
+        self.tip_timer = 0
+        self.tip_interval = 5.0
+        self.tip_index = 0
+        self.tip_alpha = 0.0
 
     def _ensure_world(self):
         if self.world_loaded:
@@ -130,6 +160,14 @@ class MainMenu:
         self.time += dt
         self.cam_yaw += dt * 4
 
+        # Tip rotation
+        self.tip_timer += dt
+        if self.tip_timer >= self.tip_interval:
+            self.tip_timer = 0
+            self.tip_index = (self.tip_index + 1) % len(TIPS)
+        self.tip_alpha = min(1.0, self.tip_timer * 0.5) if self.tip_timer < 0.5 else \
+                         max(0.0, 1.0 - (self.tip_timer - self.tip_interval + 0.5) * 2) if self.tip_timer > self.tip_interval - 0.5 else 1.0
+
         mx, my = mouse_pos
         my = self.screen_h - my
         for btn in self.buttons:
@@ -138,14 +176,12 @@ class MainMenu:
     def draw(self):
         self._ensure_world()
 
-        # ─── 3D World Background ─────────────────────────────────────────
+        # 3D world background
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glEnable(GL_DEPTH_TEST)
 
-        # Sky
         glClearColor(0.45, 0.55, 0.75, 1.0)
 
-        # 3D camera
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(60, self.screen_w / self.screen_h, 0.1, 500.0)
@@ -178,7 +214,7 @@ class MainMenu:
         glDisable(GL_LIGHTING)
         glDisable(GL_DEPTH_TEST)
 
-        # ─── 2D Menu Overlay ─────────────────────────────────────────────
+        # 2D overlay
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -217,15 +253,21 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V1.0  -  PYTHON + OPENGL", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.0  -  PYTHON + OPENGL", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
         # Buttons
         for btn in self.buttons:
             btn.draw()
 
+        # Rotating tips
+        tip = TIPS[self.tip_index]
+        tip_alpha = max(0.0, min(1.0, self.tip_alpha))
+        text_renderer.draw_text_centered(cx, 55, tip, size="small",
+                                        color=(0.6, 0.7, 0.8))
+
         # Bottom text
-        text_renderer.draw_text(10, 10, "CLICK TO CAPTURE MOUSE  |  ESC TO QUIT", size="medium",
+        text_renderer.draw_text(10, 10, "CLICK TO CAPTURE MOUSE  |  ESC TO QUIT", size="small",
                                 color=(0.4, 0.4, 0.45))
 
         glDisable(GL_BLEND)

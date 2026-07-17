@@ -40,6 +40,8 @@ class Player:
         self.crafting_open = False
         self.sprinting = False
         self.in_water = False
+        self.in_lava = False
+        self.lava_damage_timer = 0.0
         self.dead = False
         self.respawn_timer = 0.0
         self.attack_cooldown = 0.0
@@ -85,6 +87,11 @@ class Player:
         eye = self.get_eye_pos()
         bx, by, bz = int(math.floor(eye[0])), int(math.floor(eye[1])), int(math.floor(eye[2]))
         return self.world.get_block(bx, by, bz) == WATER
+
+    def _check_in_lava(self):
+        eye = self.get_eye_pos()
+        bx, by, bz = int(math.floor(eye[0])), int(math.floor(eye[1])), int(math.floor(eye[2]))
+        return self.world.get_block(bx, by, bz) == LAVA
 
     def get_armor_defense(self):
         """Calculate total armor defense points."""
@@ -164,7 +171,8 @@ class Player:
             self.spawn_immunity -= dt
 
         self.in_water = self._check_in_water()
-        self.sprinting = keys.get(K_LCTRL, False) and not self.in_water
+        self.in_lava = self._check_in_lava()
+        self.sprinting = keys.get(K_LCTRL, False) and not self.in_water and not self.in_lava
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
         if self.hurt_timer > 0:
@@ -173,6 +181,13 @@ class Player:
         # Regen cooldown
         if self.regen_cooldown > 0:
             self.regen_cooldown -= dt
+
+        # V2.1: Lava damage
+        if self.in_lava and not self.creative:
+            self.lava_damage_timer -= dt
+            if self.lava_damage_timer <= 0:
+                self.take_damage(4)
+                self.lava_damage_timer = 0.5
         
         # Eating update
         if self.eating:
@@ -226,6 +241,13 @@ class Player:
             if keys.get(K_SPACE): self.velocity[1] = speed
             elif keys.get(K_LSHIFT): self.velocity[1] = -speed
             else: self.velocity[1] = 0
+        elif self.in_lava:
+            if keys.get(K_SPACE):
+                self.velocity[1] = 2.0
+            self.velocity[1] += 0.8 * dt
+            self.velocity[1] *= WATER_DRAG * 0.8
+            self.velocity[0] *= WATER_DRAG * 0.8
+            self.velocity[2] *= WATER_DRAG * 0.8
         elif self.in_water:
             if keys.get(K_SPACE):
                 self.velocity[1] = 3.5
@@ -243,9 +265,9 @@ class Player:
         new_pos = self.pos + self.velocity * dt
         new_pos = self._check_collision(new_pos)
 
-        if new_pos[1] < self.pos[1] and not self.flying and not self.in_water:
+        if new_pos[1] < self.pos[1] and not self.flying and not self.in_water and not self.in_lava:
             self.fall_distance += self.pos[1] - new_pos[1]
-        elif self.on_ground or self.in_water:
+        elif self.on_ground or self.in_water or self.in_lava:
             if self.fall_distance > 3.0 and not self.creative and self.spawn_immunity <= 0:
                 damage = self.fall_distance - 3.0
                 armor_def = self.get_armor_defense()

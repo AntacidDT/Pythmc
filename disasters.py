@@ -305,6 +305,7 @@ class Tsunami(Disaster):
         self.wave_height = 8
         self.flooded = []
         self.phase = 0
+        self.place_timer = 0.0
         return self
 
     def update(self, dt, player_pos):
@@ -313,10 +314,15 @@ class Tsunami(Disaster):
         self.wave_pos += self.direction * self.wave_speed * dt
         self.phase += dt * 2
 
-        px, pz = int(self.wave_pos[0]), int(self.wave_pos[2])
-        for dx in range(-self.wave_width, self.wave_width + 1):
-            for dz in range(-2, 3):
-                bx, bz = px + dx, pz + dz
+        self.place_timer -= dt
+
+        if self.place_timer <= 0:
+            self.place_timer = 0.1
+            px, pz = int(self.wave_pos[0]), int(self.wave_pos[2])
+            placed = 0
+            for dx in range(-self.wave_width, self.wave_width + 1):
+                bx = px + dx
+                bz = pz + self.rng.randint(-2, 2)
                 for y in range(self.wave_height, 0, -1):
                     b = self.world.get_block(bx, y, bz)
                     if b == AIR:
@@ -324,17 +330,23 @@ class Tsunami(Disaster):
                         self.flooded.append((bx, y, bz))
                         cx, cz = self.world.world_to_chunk(bx, bz)
                         self.affected_chunks.add((cx, cz))
+                        placed += 1
                         break
                     elif b in SOLID_BLOCKS:
                         break
+                if placed >= 15:
+                    break
+
+            self.apply_chunk_dirtying()
 
         if self.timer < self.max_duration * 0.3:
-            for bx, by, bz in self.flooded[-50:]:
-                self.world.set_block(bx, by, bz, AIR)
-                cx, cz = self.world.world_to_chunk(bx, bz)
-                self.affected_chunks.add((cx, cz))
-
-        self.apply_chunk_dirtying()
+            if self.place_timer <= 0:
+                self.place_timer = 0.1
+                for bx, by, bz in self.flooded[-50:]:
+                    self.world.set_block(bx, by, bz, AIR)
+                    cx, cz = self.world.world_to_chunk(bx, bz)
+                    self.affected_chunks.add((cx, cz))
+                self.apply_chunk_dirtying()
 
 
 # ─── 4. Sandstorm ───────────────────────────────────────────────────────────
@@ -706,7 +718,20 @@ class Sinkhole(Disaster):
         self.sink_radius = 0.0
         self.max_radius = self.rng.uniform(5.0, 10.0)
         self.grow_rate = self.max_radius / (self.max_duration * 0.7)
+        self.dig_timer = 0.0
+        self.dig_positions = []
+        self._rebuild_dig_queue()
         return self
+
+    def _rebuild_dig_queue(self):
+        self.dig_positions = []
+        r = int(self.sink_radius) + 1
+        for dx in range(-r, r + 1):
+            for dz in range(-r, r + 1):
+                dist = math.sqrt(dx*dx + dz*dz)
+                if dist <= self.sink_radius:
+                    self.dig_positions.append((dx, dz, dist))
+        self.rng.shuffle(self.dig_positions)
 
     def update(self, dt, player_pos):
         super().update(dt, player_pos)
@@ -714,23 +739,28 @@ class Sinkhole(Disaster):
 
         if self.sink_radius < self.max_radius:
             self.sink_radius += self.grow_rate * dt
-            r = int(self.sink_radius)
-            for dx in range(-r, r + 1):
-                for dz in range(-r, r + 1):
-                    dist = math.sqrt(dx*dx + dz*dz)
-                    if dist <= self.sink_radius:
-                        bx, bz = self.cx + dx, self.cz + dz
-                        for y in range(40, 0, -1):
-                            b = self.world.get_block(bx, y, bz)
-                            if b not in (AIR, WATER, LAVA, BEDROCK):
-                                depth = int((self.sink_radius - dist) * 0.4)
-                                for remove_y in range(y, max(0, y - depth) - 1, -1):
-                                    rb = self.world.get_block(bx, remove_y, bz)
-                                    if rb not in (BEDROCK,):
-                                        self.world.set_block(bx, remove_y, bz, AIR)
-                                        cx2, cz2 = self.world.world_to_chunk(bx, bz)
-                                        self.affected_chunks.add((cx2, cz2))
-                                break
+            self._rebuild_dig_queue()
+
+        self.dig_timer -= dt
+        if self.dig_timer <= 0:
+            self.dig_timer = 0.15
+            placed = 0
+            for dx, dz, dist in self.dig_positions:
+                bx, bz = self.cx + dx, self.cz + dz
+                for y in range(40, 0, -1):
+                    b = self.world.get_block(bx, y, bz)
+                    if b not in (AIR, WATER, LAVA, BEDROCK):
+                        depth = int((self.sink_radius - dist) * 0.4)
+                        for remove_y in range(y, max(0, y - depth) - 1, -1):
+                            rb = self.world.get_block(bx, remove_y, bz)
+                            if rb not in (BEDROCK,):
+                                self.world.set_block(bx, remove_y, bz, AIR)
+                                cx2, cz2 = self.world.world_to_chunk(bx, bz)
+                                self.affected_chunks.add((cx2, cz2))
+                                placed += 1
+                        break
+                if placed >= 15:
+                    break
             self.apply_chunk_dirtying()
 
 
@@ -915,20 +945,25 @@ class FlashFlood(Disaster):
         self.wave_width = 10
         self.flooded = []
         self.receding = False
+        self.place_timer = 0.0
         return self
 
     def update(self, dt, player_pos):
         super().update(dt, player_pos)
         self.intensity = min(1.0, self.timer / 2.0)
 
+        self.place_timer -= dt
+
         if not self.receding:
             self.wave_x += self.direction[0] * self.wave_speed * dt
             self.wave_z += self.direction[2] * self.wave_speed * dt
 
-            wx, wz = int(self.wave_x), int(self.wave_z)
-            for dx in range(-self.wave_width, self.wave_width + 1):
-                bx = wx + dx
-                for dy in range(0, 4):
+            if self.place_timer <= 0:
+                self.place_timer = 0.1
+                wx, wz = int(self.wave_x), int(self.wave_z)
+                placed = 0
+                for dx in range(-self.wave_width, self.wave_width + 1):
+                    bx = wx + dx
                     bz = wz + self.rng.randint(-2, 2)
                     for y in range(25, 0, -1):
                         b = self.world.get_block(bx, y, bz)
@@ -937,16 +972,21 @@ class FlashFlood(Disaster):
                             self.flooded.append((bx, y, bz))
                             cx, cz = self.world.world_to_chunk(bx, bz)
                             self.affected_chunks.add((cx, cz))
+                            placed += 1
                             break
                         elif b in SOLID_BLOCKS:
                             break
+                    if placed >= 12:
+                        break
 
         if self.timer < self.max_duration * 0.4:
             self.receding = True
-            for bx, by, bz in self.flooded[-30:]:
-                self.world.set_block(bx, by, bz, AIR)
-                cx, cz = self.world.world_to_chunk(bx, bz)
-                self.affected_chunks.add((cx, cz))
+            if self.place_timer <= 0:
+                self.place_timer = 0.1
+                for bx, by, bz in self.flooded[-30:]:
+                    self.world.set_block(bx, by, bz, AIR)
+                    cx, cz = self.world.world_to_chunk(bx, bz)
+                    self.affected_chunks.add((cx, cz))
 
         self.apply_chunk_dirtying()
 

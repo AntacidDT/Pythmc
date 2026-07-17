@@ -334,7 +334,7 @@ class Game:
             elif self.state == GameState.SETTINGS:
                 result = self.settings_menu.handle_event(event)
                 if result == "back":
-                    self.sensitivity = self.settings_menu.sensitivity
+                    self.sensitivity = settings_manager.get("screen", "sensitivity")
                     self.state = self.previous_state
 
             elif self.state == GameState.WORLD_SELECT:

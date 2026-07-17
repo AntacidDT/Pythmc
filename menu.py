@@ -9,6 +9,7 @@ import math
 import time
 from constants import *
 from text_renderer import text_renderer
+from settings_manager import settings_manager, DISPLAY_NAMES, RANGES, DEFAULTS
 
 
 class Button:
@@ -253,7 +254,7 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.0  -  PYTHON + OPENGL", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.2  -  NATURAL DISASTERS", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
         # Buttons
@@ -391,26 +392,91 @@ class PauseMenu:
         glEnable(GL_FOG)
 
 
+# ─── Settings Menu ─────────────────────────────────────────────────────────
+
+# Setting definitions per tab: (category, key, step, is_int)
+TAB_SETTING_DEFS = {
+    "Graphics": [
+        ("screen", "fov", 5, False),
+        ("screen", "fps", 10, True),
+        ("world", "render_distance", 1, True),
+    ],
+    "Audio": [
+        ("screen", "volume", 0.1, False),
+    ],
+    "Controls": [
+        ("screen", "sensitivity", 0.05, False),
+    ],
+    "Physics": [
+        ("physics", "gravity", 5.0, False),
+        ("physics", "jump_speed", 1.0, False),
+        ("physics", "walk_speed", 0.5, False),
+        ("physics", "sprint_speed", 0.5, False),
+        ("physics", "swim_speed", 0.5, False),
+        ("physics", "fly_speed", 1.0, False),
+        ("physics", "max_reach", 1.0, False),
+        ("physics", "water_drag", 0.1, False),
+    ],
+    "World": [
+        ("world", "day_speed", 0.001, False),
+    ],
+}
+
+TAB_NAMES = ["Graphics", "Audio", "Controls", "Physics", "World"]
+
+
 class SettingsMenu:
     def __init__(self, screen_w, screen_h):
         self.screen_w = screen_w
         self.screen_h = screen_h
-        self.sensitivity = 0.15
-        self.render_distance = RENDER_DISTANCE
         self.time = 0
+
+        # Load current values
+        self.sensitivity = settings_manager.get("screen", "sensitivity")
+        self.render_distance = settings_manager.get("world", "render_distance")
+        self.tab_index = 0
+        self.scroll_y = 0
 
         cx = screen_w // 2
         cy = screen_h // 2
 
-        self.buttons = [
-            Button(cx - 170, cy + 60, 340, 50, f"SENSITIVITY: {self.sensitivity:.2f}", (0.25, 0.3, 0.5), (0.35, 0.4, 0.65)),
-            Button(cx - 170, cy - 10, 340, 50, f"RENDER DIST: {self.render_distance}", (0.25, 0.3, 0.5), (0.35, 0.4, 0.65)),
-            Button(cx - 170, cy - 80, 340, 50, "DONE", (0.2, 0.5, 0.2), (0.3, 0.7, 0.3)),
-        ]
+        self.done_button = Button(cx - 170, cy - 280, 340, 40, "DONE", (0.2, 0.5, 0.2), (0.3, 0.7, 0.3))
+
+        # Tab buttons
+        tab_w = 100
+        total_w = len(TAB_NAMES) * (tab_w + 6)
+        tab_start_x = cx - total_w // 2
+        self.tab_buttons = []
+        for i, name in enumerate(TAB_NAMES):
+            tx = tab_start_x + i * (tab_w + 6)
+            self.tab_buttons.append(Button(tx, cy + 260, tab_w, 30, name.upper(),
+                                           (0.2, 0.2, 0.4), (0.3, 0.3, 0.55)))
 
         self.cam_yaw = 0
         self.world = None
         self.world_loaded = False
+
+        self._rebuild_setting_buttons()
+
+    def _rebuild_setting_buttons(self):
+        cx = self.screen_w // 2
+        cy = self.screen_h // 2
+        self.setting_buttons = []
+        tab_name = TAB_NAMES[self.tab_index]
+        defs = TAB_SETTING_DEFS.get(tab_name, [])
+        y_start = cy + 200
+        for i, (cat, key, step, is_int) in enumerate(defs):
+            val = settings_manager.get(cat, key)
+            display = DISPLAY_NAMES.get(cat, {}).get(key, key)
+            if is_int:
+                text = f"{display}: {int(val)}"
+            else:
+                text = f"{display}: {val:.2f}"
+            by = y_start - i * 48
+            self.setting_buttons.append(Button(cx - 170, by, 220, 38, text))
+            # Arrow buttons: left (-) and right (+)
+            self.setting_buttons.append(Button(cx + 60, by, 50, 38, "-", (0.4, 0.2, 0.2), (0.6, 0.3, 0.3)))
+            self.setting_buttons.append(Button(cx + 116, by, 50, 38, "+", (0.2, 0.4, 0.2), (0.3, 0.6, 0.3)))
 
     def _ensure_world(self):
         if self.world_loaded:
@@ -426,28 +492,76 @@ class SettingsMenu:
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
             mx, my = event.pos
             my = self.screen_h - my
-            for i, btn in enumerate(self.buttons):
+
+            # Done button
+            if self.done_button.contains(mx, my):
+                settings_manager.save()
+                return "back"
+
+            # Tab buttons
+            for i, btn in enumerate(self.tab_buttons):
                 if btn.contains(mx, my):
-                    if i == 0:
-                        self.sensitivity += 0.05
-                        if self.sensitivity > 0.4:
-                            self.sensitivity = 0.05
-                        self.buttons[0].text = f"SENSITIVITY: {self.sensitivity:.2f}"
-                    elif i == 1:
-                        self.render_distance = (self.render_distance % 6) + 2
-                        self.buttons[1].text = f"RENDER DIST: {self.render_distance}"
-                    elif i == 2:
-                        return "back"
+                    sound_manager.play('click')
+                    self.tab_index = i
+                    self._rebuild_setting_buttons()
+                    return None
+
+            # Setting buttons (groups of 3: label, -, +)
+            tab_name = TAB_NAMES[self.tab_index]
+            defs = TAB_SETTING_DEFS.get(tab_name, [])
+            for i in range(0, len(self.setting_buttons), 3):
+                idx = i // 3
+                if idx >= len(defs):
+                    break
+                cat, key, step, is_int = defs[idx]
+                label_btn = self.setting_buttons[i]
+                minus_btn = self.setting_buttons[i + 1]
+                plus_btn = self.setting_buttons[i + 2]
+
+                if minus_btn.contains(mx, my):
+                    sound_manager.play('click')
+                    val = settings_manager.get(cat, key)
+                    lo, hi = RANGES.get(cat, {}).get(key, (-9999, 9999))
+                    val = max(lo, val - step)
+                    settings_manager.set(cat, key, val)
+                    self._refresh_label(i, cat, key, is_int)
+                    return None
+                elif plus_btn.contains(mx, my):
+                    sound_manager.play('click')
+                    val = settings_manager.get(cat, key)
+                    lo, hi = RANGES.get(cat, {}).get(key, (-9999, 9999))
+                    val = min(hi, val + step)
+                    settings_manager.set(cat, key, val)
+                    self._refresh_label(i, cat, key, is_int)
+                    return None
+
         elif event.type == KEYDOWN and event.key == K_ESCAPE:
+            settings_manager.save()
             return "back"
+
+        elif event.type == MOUSEWHEEL:
+            self.scroll_y = max(0, self.scroll_y - event.y * 30)
+
         return None
+
+    def _refresh_label(self, btn_index, cat, key, is_int):
+        val = settings_manager.get(cat, key)
+        display = DISPLAY_NAMES.get(cat, {}).get(key, key)
+        if is_int:
+            text = f"{display}: {int(val)}"
+        else:
+            text = f"{display}: {val:.2f}"
+        self.setting_buttons[btn_index].text = text
 
     def update(self, dt, mouse_pos):
         self.time += dt
         self.cam_yaw += dt * 4
         mx, my = mouse_pos
         my = self.screen_h - my
-        for btn in self.buttons:
+        self.done_button.hovered = self.done_button.contains(mx, my)
+        for btn in self.tab_buttons:
+            btn.hovered = btn.contains(mx, my)
+        for btn in self.setting_buttons:
             btn.hovered = btn.contains(mx, my)
 
     def draw(self):
@@ -512,8 +626,8 @@ class SettingsMenu:
         cy = self.screen_h // 2
 
         # Panel
-        pw, ph = 420, 270
-        glColor4f(0.05, 0.05, 0.1, 0.85)
+        pw, ph = 420, 620
+        glColor4f(0.05, 0.05, 0.1, 0.90)
         glBegin(GL_QUADS)
         glVertex2f(cx - pw // 2, cy - ph // 2)
         glVertex2f(cx + pw // 2, cy - ph // 2)
@@ -532,7 +646,7 @@ class SettingsMenu:
         glEnd()
 
         # Title
-        text_renderer.draw_text_centered_shadow(cx, cy + ph // 2 - 50, "SETTINGS", size="medium",
+        text_renderer.draw_text_centered_shadow(cx, cy + ph // 2 - 45, "SETTINGS", size="medium",
                                                 color=(1.0, 1.0, 1.0),
                                                 shadow=(0.2, 0.2, 0.2))
 
@@ -540,13 +654,33 @@ class SettingsMenu:
         glColor4f(0.3, 0.3, 0.4, 0.4)
         glLineWidth(1)
         glBegin(GL_LINES)
-        glVertex2f(cx - pw // 2 + 20, cy + ph // 2 - 60)
-        glVertex2f(cx + pw // 2 - 20, cy + ph // 2 - 60)
+        glVertex2f(cx - pw // 2 + 20, cy + ph // 2 - 55)
+        glVertex2f(cx + pw // 2 - 20, cy + ph // 2 - 55)
         glEnd()
 
-        # Buttons
-        for btn in self.buttons:
+        # Tab buttons
+        for btn in self.tab_buttons:
             btn.draw()
+
+        # Active tab underline
+        active_tab_btn = self.tab_buttons[self.tab_index]
+        glColor4f(0.3, 0.8, 0.3, 0.8)
+        glLineWidth(2)
+        glBegin(GL_LINES)
+        glVertex2f(active_tab_btn.x, active_tab_btn.y - 2)
+        glVertex2f(active_tab_btn.x + active_tab_btn.w, active_tab_btn.y - 2)
+        glEnd()
+
+        # Setting buttons
+        for btn in self.setting_buttons:
+            btn.draw()
+
+        # Done button
+        self.done_button.draw()
+
+        # Version
+        text_renderer.draw_text(10, 10, "ESC = Back  |  Settings save automatically", size="small",
+                                color=(0.4, 0.45, 0.5))
 
         glDisable(GL_BLEND)
         glPopMatrix()

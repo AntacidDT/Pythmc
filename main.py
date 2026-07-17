@@ -30,7 +30,7 @@ from entities import EntityManager, ItemDrop
 from renderer import (
     ParticleSystem, CloudRenderer, HUD,
     draw_target_block, update_sky, init_gl, draw_player_body,
-    draw_falling_blocks, get_character_colors, draw_first_person_hand
+    draw_falling_blocks, get_character_colors
 )
 from menu import MainMenu, PauseMenu, SettingsMenu, CharacterCustomizationScreen
 from inventory_ui import CraftingUI
@@ -890,15 +890,16 @@ class Game:
         # Clouds
         self.clouds.draw(self.player.pos, self.world_time)
 
-        # Player body in third person
+        # Player body
+        armor_dict = {}
+        slot_names = {0: "helmet", 1: "chestplate", 2: "leggings", 3: "boots"}
+        for i, item_id in enumerate(self.player.armor):
+            if item_id:
+                armor_dict[slot_names[i]] = item_id
+
+        held = self.player.hotbar[self.player.selected_slot]
+
         if self.player.third_person:
-            # Build armor dict for rendering
-            armor_dict = {}
-            slot_names = {0: "helmet", 1: "chestplate", 2: "leggings", 3: "boots"}
-            for i, item_id in enumerate(self.player.armor):
-                if item_id:
-                    armor_dict[slot_names[i]] = item_id
-            
             draw_player_body(
                 self.player.pos[0], self.player.pos[1], self.player.pos[2],
                 self.player.yaw, self.player.pitch,
@@ -906,6 +907,18 @@ class Game:
                 armor_slots=armor_dict,
                 is_sneaking=self.player.sneaking,
                 colors=get_character_colors()
+            )
+        else:
+            # First-person: camera IS the head, draw body (no head) in 3D
+            draw_player_body(
+                self.player.pos[0], self.player.pos[1], self.player.pos[2],
+                self.player.yaw, self.player.pitch,
+                self.player.arm_swing, self.player.walk_cycle,
+                armor_slots=armor_dict,
+                is_sneaking=self.player.sneaking,
+                colors=get_character_colors(),
+                first_person=True,
+                held_item=held
             )
 
         # Entities and items
@@ -944,10 +957,6 @@ class Game:
         eye = self.player.get_eye_pos()
         hit, _, _ = raycast(self.world, eye, self.player.get_forward())
         draw_target_block(hit, FACE_VERTS)
-
-        # First-person hand + held block
-        if not self.player.third_person:
-            draw_first_person_hand(self.player, SCREEN_W, SCREEN_H)
 
         # HUD
         stats = {

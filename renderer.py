@@ -363,8 +363,10 @@ class HUD:
         glDisable(GL_BLEND)
 
 
-def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None):
-    """Draw player body with head, body, arms, legs and armor overlay."""
+def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None, first_person=False, held_item=None):
+    """Draw player body with head, body, arms, legs and armor overlay.
+    If first_person=True, head/eyes are hidden (camera IS the head) and
+    a held_item cube is drawn at the right hand tip."""
     glPushMatrix()
     glTranslatef(x, y, z)
     glRotatef(yaw, 0, 1, 0)
@@ -473,47 +475,58 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
     glPopMatrix()
     
-    # Right arm
+    # Right arm (with held item in first-person)
     glPushMatrix()
     glTranslatef(body_w/2 + arm_w/2, arm_y + arm_h, 0)
     glRotatef(-arm_swing, 1, 0, 0)
     glTranslatef(0, -arm_h, 0)
     _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
+    
+    # In first-person, draw held block on the hand
+    if first_person and held_item and held_item in ITEM_COLORS:
+        c = ITEM_COLORS[held_item][1]
+        bs = 0.3
+        bx = -bs / 2
+        by = arm_h + 0.05
+        bz = -bs / 2
+        _draw_cube(bx, by, bz, bx + bs, by + bs, bz + bs, c)
+    
     glPopMatrix()
     
-    # Head
-    head_y_pos = head_y
-    _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
-    _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
-    
-    # Eyes
-    eye_y = head_y_pos + head_h * 0.55
-    eye_z = -head_w/2 - 0.001
-    glColor3f(1, 1, 1)
-    glBegin(GL_QUADS)
-    glVertex3f(-0.15, eye_y, eye_z)
-    glVertex3f(-0.05, eye_y, eye_z)
-    glVertex3f(-0.05, eye_y + 0.08, eye_z)
-    glVertex3f(-0.15, eye_y + 0.08, eye_z)
-    glVertex3f(0.05, eye_y, eye_z)
-    glVertex3f(0.15, eye_y, eye_z)
-    glVertex3f(0.15, eye_y + 0.08, eye_z)
-    glVertex3f(0.05, eye_y + 0.08, eye_z)
-    glEnd()
-    
-    # Pupils
-    glColor3f(*eye_color)
-    pupil_z = eye_z - 0.001
-    glBegin(GL_QUADS)
-    glVertex3f(-0.13, eye_y + 0.01, pupil_z)
-    glVertex3f(-0.07, eye_y + 0.01, pupil_z)
-    glVertex3f(-0.07, eye_y + 0.06, pupil_z)
-    glVertex3f(-0.13, eye_y + 0.06, pupil_z)
-    glVertex3f(0.07, eye_y + 0.01, pupil_z)
-    glVertex3f(0.13, eye_y + 0.01, pupil_z)
-    glVertex3f(0.13, eye_y + 0.06, pupil_z)
-    glVertex3f(0.07, eye_y + 0.06, pupil_z)
-    glEnd()
+    # Head and eyes (skip in first-person — camera IS the head)
+    if not first_person:
+        head_y_pos = head_y
+        _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
+        _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
+        
+        # Eyes
+        eye_y = head_y_pos + head_h * 0.55
+        eye_z = -head_w/2 - 0.001
+        glColor3f(1, 1, 1)
+        glBegin(GL_QUADS)
+        glVertex3f(-0.15, eye_y, eye_z)
+        glVertex3f(-0.05, eye_y, eye_z)
+        glVertex3f(-0.05, eye_y + 0.08, eye_z)
+        glVertex3f(-0.15, eye_y + 0.08, eye_z)
+        glVertex3f(0.05, eye_y, eye_z)
+        glVertex3f(0.15, eye_y, eye_z)
+        glVertex3f(0.15, eye_y + 0.08, eye_z)
+        glVertex3f(0.05, eye_y + 0.08, eye_z)
+        glEnd()
+        
+        # Pupils
+        glColor3f(*eye_color)
+        pupil_z = eye_z - 0.001
+        glBegin(GL_QUADS)
+        glVertex3f(-0.13, eye_y + 0.01, pupil_z)
+        glVertex3f(-0.07, eye_y + 0.01, pupil_z)
+        glVertex3f(-0.07, eye_y + 0.06, pupil_z)
+        glVertex3f(-0.13, eye_y + 0.06, pupil_z)
+        glVertex3f(0.07, eye_y + 0.01, pupil_z)
+        glVertex3f(0.13, eye_y + 0.01, pupil_z)
+        glVertex3f(0.13, eye_y + 0.06, pupil_z)
+        glVertex3f(0.07, eye_y + 0.06, pupil_z)
+        glEnd()
     
     glPopMatrix()
 

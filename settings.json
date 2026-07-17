@@ -17,7 +17,7 @@
     "chunk_size": 16,
     "chunk_height": 64,
     "render_distance": 4,
-    "day_speed": 0.005
+    "day_speed": 0.008
   },
   "screen": {
     "screen_w": 1280,
@@ -28,7 +28,7 @@
     "volume": 0.5
   },
   "gpu": {
-    "cuda_enabled": 1
+    "cuda_enabled": 0
   },
   "appearance": {
     "skin_r": 230,

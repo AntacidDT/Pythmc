@@ -95,6 +95,7 @@ class Game:
         text_renderer.init()
         texture_manager.init()
         sound_manager.init()
+        music.init()
 
         # V2.3: CUDA GPU detection
         cuda_ok = try_init_cupy()

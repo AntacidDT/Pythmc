@@ -43,6 +43,9 @@ DEFAULTS = {
         "shirt_r": 51, "shirt_g": 128, "shirt_b": 204,
         "pants_r": 77, "pants_g": 77, "pants_b": 153,
         "eyes_r": 26, "eyes_g": 77, "eyes_b": 153,
+        "upper_style": "t_shirt",
+        "lower_style": "long_pants",
+        "shoe_style": "shoes",
     },
 }
 

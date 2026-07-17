@@ -728,6 +728,10 @@ PARTS = [
     ("Eyes", "eyes"),
 ]
 
+UPPER_STYLES = ["none", "tank_top", "t_shirt", "long_sleeve"]
+LOWER_STYLES = ["none", "shorts", "long_pants"]
+SHOE_STYLES = ["none", "shoes"]
+
 
 class CharacterCustomizationScreen:
     def __init__(self, screen_w, screen_h):
@@ -764,6 +768,25 @@ class CharacterCustomizationScreen:
                     "plus": Button(cx + 226, by, 40, 22, "+", (0.2, 0.4, 0.2), (0.3, 0.6, 0.3)),
                 })
 
+        # Clothing style buttons
+        self.style_buttons = []
+        style_y = y_start - len(PARTS) * 80 - 20
+
+        for label_text, setting_key, options in [
+            ("Upper", "upper_style", UPPER_STYLES),
+            ("Lower", "lower_style", LOWER_STYLES),
+            ("Shoes", "shoe_style", SHOE_STYLES),
+        ]:
+            current = settings_manager.get("appearance", setting_key)
+            self.style_buttons.append({
+                "label": label_text,
+                "setting_key": setting_key,
+                "options": options,
+                "prev": Button(cx + 160, style_y, 40, 24, "<", (0.3, 0.3, 0.4), (0.45, 0.45, 0.6)),
+                "next": Button(cx + 250, style_y, 40, 24, ">", (0.3, 0.3, 0.4), (0.45, 0.45, 0.6)),
+            })
+            style_y -= 36
+
     def _refresh_button_label(self, btn_info):
         val = int(settings_manager.get("appearance", btn_info["setting_key"]))
         ch_name = btn_info["ch_key"].upper()
@@ -782,6 +805,9 @@ class CharacterCustomizationScreen:
                     "shirt_r": 51, "shirt_g": 128, "shirt_b": 204,
                     "pants_r": 77, "pants_g": 77, "pants_b": 153,
                     "eyes_r": 26, "eyes_g": 77, "eyes_b": 153,
+                    "upper_style": "t_shirt",
+                    "lower_style": "long_pants",
+                    "shoe_style": "shoes",
                 }
                 for k, v in defaults.items():
                     settings_manager.set("appearance", k, v)
@@ -801,6 +827,21 @@ class CharacterCustomizationScreen:
                     self._refresh_button_label(btn_info)
                     sound_manager.play('click')
                     return None
+            for style_info in self.style_buttons:
+                sk = style_info["setting_key"]
+                opts = style_info["options"]
+                if style_info["prev"].contains(mx, my):
+                    cur = settings_manager.get("appearance", sk)
+                    idx = (opts.index(cur) - 1) % len(opts) if cur in opts else 0
+                    settings_manager.set("appearance", sk, opts[idx])
+                    sound_manager.play('click')
+                    return None
+                if style_info["next"].contains(mx, my):
+                    cur = settings_manager.get("appearance", sk)
+                    idx = (opts.index(cur) + 1) % len(opts) if cur in opts else 0
+                    settings_manager.set("appearance", sk, opts[idx])
+                    sound_manager.play('click')
+                    return None
         elif event.type == KEYDOWN and event.key == K_ESCAPE:
             settings_manager.save()
             return "back"
@@ -816,6 +857,9 @@ class CharacterCustomizationScreen:
         for btn_info in self.color_buttons:
             btn_info["minus"].hovered = btn_info["minus"].contains(mx, my)
             btn_info["plus"].hovered = btn_info["plus"].contains(mx, my)
+        for style_info in self.style_buttons:
+            style_info["prev"].hovered = style_info["prev"].contains(mx, my)
+            style_info["next"].hovered = style_info["next"].contains(mx, my)
 
     def draw(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -937,6 +981,17 @@ class CharacterCustomizationScreen:
             glVertex2f(cx + 200, by + 20)
             glVertex2f(cx + 160, by + 20)
             glEnd()
+
+        # Clothing style selectors
+        for style_info in self.style_buttons:
+            text_renderer.draw_text(cx + 20, style_info["prev"].y + 3,
+                                    style_info["label"], "small", (0.6, 0.65, 0.7))
+            cur = settings_manager.get("appearance", style_info["setting_key"])
+            display = cur.replace("_", " ").upper()
+            text_renderer.draw_text(cx + 80, style_info["prev"].y + 3,
+                                    display, "small", (0.85, 0.85, 0.9))
+            style_info["prev"].draw()
+            style_info["next"].draw()
 
         self.done_button.draw()
         self.reset_button.draw()

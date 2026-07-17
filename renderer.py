@@ -10,7 +10,7 @@ from constants import *
 
 
 def get_character_colors():
-    """Load character body part colors from settings."""
+    """Load character body part colors and clothing styles from settings."""
     from settings_manager import settings_manager
     def _c(rk, gk, bk):
         return (settings_manager.get("appearance", rk) / 255.0,
@@ -21,6 +21,9 @@ def get_character_colors():
         "shirt": _c("shirt_r", "shirt_g", "shirt_b"),
         "pants": _c("pants_r", "pants_g", "pants_b"),
         "eyes": _c("eyes_r", "eyes_g", "eyes_b"),
+        "upper_style": settings_manager.get("appearance", "upper_style"),
+        "lower_style": settings_manager.get("appearance", "lower_style"),
+        "shoe_style": settings_manager.get("appearance", "shoe_style"),
     }
 
 
@@ -364,7 +367,8 @@ class HUD:
 
 
 def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None):
-    """Draw player body with head, body, arms, legs and armor overlay."""
+    """Draw player body with head, body, arms, legs and armor overlay.
+    Supports clothing styles: upper_style, lower_style, shoe_style."""
     glPushMatrix()
     glTranslatef(x, y, z)
     glRotatef(yaw, 0, 1, 0)
@@ -381,11 +385,19 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
         shirt = colors.get("shirt", (0.20, 0.50, 0.80))
         pants = colors.get("pants", (0.30, 0.30, 0.60))
         eye_color = colors.get("eyes", (0.1, 0.3, 0.6))
+        upper_style = colors.get("upper_style", "t_shirt")
+        lower_style = colors.get("lower_style", "long_pants")
+        shoe_style = colors.get("shoe_style", "shoes")
     else:
         skin = (0.90, 0.75, 0.60)
         shirt = (0.20, 0.50, 0.80)
         pants = (0.30, 0.30, 0.60)
         eye_color = (0.1, 0.3, 0.6)
+        upper_style = "t_shirt"
+        lower_style = "long_pants"
+        shoe_style = "shoes"
+    
+    shoe_color = (pants[0] * 0.3, pants[1] * 0.3, pants[2] * 0.3)
     
     def _draw_cube(x1, y1, z1, x2, y2, z2, color):
         glColor3f(*color)
@@ -433,6 +445,52 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
         cx, cy, cz = (x1+x2)/2, (y1+y2)/2, (z1+z2)/2
         w2, h2, d2 = (x2-x1)*s/2, (y2-y1)*s/2, (z2-z1)*s/2
         _draw_cube(cx-w2, cy-h2, cz-d2, cx+w2, cy+h2, cz+d2, color)
+
+    def _draw_arm(swing_dir):
+        """Draw one arm with clothing style.
+        swing_dir: 1 for left, -1 for right"""
+        glPushMatrix()
+        side = -1 if swing_dir > 0 else 1
+        glTranslatef(side * (body_w/2 + arm_w/2), arm_y + arm_h, 0)
+        glRotatef(arm_swing * swing_dir, 1, 0, 0)
+        glTranslatef(0, -arm_h, 0)
+
+        if upper_style == "long_sleeve":
+            _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, shirt)
+        elif upper_style == "t_shirt":
+            split = arm_h * 0.45
+            _draw_cube(-arm_w/2, split, -arm_w/2, arm_w/2, arm_h, arm_w/2, shirt)
+            _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, split, arm_w/2, skin)
+        else:
+            _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
+
+        glPopMatrix()
+
+    def _draw_leg(swing_dir):
+        """Draw one leg with clothing style."""
+        glPushMatrix()
+        side = -1 if swing_dir > 0 else 1
+        glTranslatef(side * 0.125, leg_y + leg_h, 0)
+        glRotatef(math.sin(walk_cycle) * 30 * swing_dir if walk_cycle else 0, 1, 0, 0)
+        glTranslatef(0, -leg_h, 0)
+
+        shoe_h = leg_h * 0.12
+        if lower_style == "long_pants":
+            _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, pants)
+            if shoe_style == "shoes":
+                _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, shoe_h, leg_w/2, shoe_color)
+        elif lower_style == "shorts":
+            split = leg_h * 0.5
+            _draw_cube(-leg_w/2, split, -leg_w/2, leg_w/2, leg_h, leg_w/2, pants)
+            _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, split, leg_w/2, skin)
+            if shoe_style == "shoes":
+                _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, shoe_h, leg_w/2, shoe_color)
+        else:
+            _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, skin)
+            if shoe_style == "shoes":
+                _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, shoe_h, leg_w/2, shoe_color)
+
+        glPopMatrix()
     
     # Sneak offset: lower entire body slightly
     sneak_y = -0.2 if is_sneaking else 0.0
@@ -443,43 +501,21 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     leg_y = 0.0
     
     # Left leg
-    glPushMatrix()
-    leg_swing = math.sin(walk_cycle) * 30 if walk_cycle else 0
-    glTranslatef(-0.125, leg_y + leg_h, 0)
-    glRotatef(leg_swing, 1, 0, 0)
-    glTranslatef(0, -leg_h, 0)
-    _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, pants)
-    _draw_armor_overlay(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, 2)
-    glPopMatrix()
+    _draw_leg(1)
     
     # Right leg
-    glPushMatrix()
-    glTranslatef(0.125, leg_y + leg_h, 0)
-    glRotatef(-leg_swing, 1, 0, 0)
-    glTranslatef(0, -leg_h, 0)
-    _draw_cube(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, pants)
-    _draw_armor_overlay(-leg_w/2, 0, -leg_w/2, leg_w/2, leg_h, leg_w/2, 2)
-    glPopMatrix()
+    _draw_leg(-1)
     
-    # Body
-    _draw_cube(-body_w/2, body_y, -body_d/2, body_w/2, body_y + body_h, body_d/2, shirt)
+    # Body (torso) — shirt or skin based on upper_style
+    torso_color = shirt if upper_style != "none" else skin
+    _draw_cube(-body_w/2, body_y, -body_d/2, body_w/2, body_y + body_h, body_d/2, torso_color)
     _draw_armor_overlay(-body_w/2, body_y, -body_d/2, body_w/2, body_y + body_h, body_d/2, 1)
     
     # Left arm
-    glPushMatrix()
-    glTranslatef(-body_w/2 - arm_w/2, arm_y + arm_h, 0)
-    glRotatef(arm_swing, 1, 0, 0)
-    glTranslatef(0, -arm_h, 0)
-    _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
-    glPopMatrix()
+    _draw_arm(1)
     
     # Right arm
-    glPushMatrix()
-    glTranslatef(body_w/2 + arm_w/2, arm_y + arm_h, 0)
-    glRotatef(-arm_swing, 1, 0, 0)
-    glTranslatef(0, -arm_h, 0)
-    _draw_cube(-arm_w/2, 0, -arm_w/2, arm_w/2, arm_h, arm_w/2, skin)
-    glPopMatrix()
+    _draw_arm(-1)
     
     # Head
     head_y_pos = head_y
@@ -538,6 +574,7 @@ def draw_first_person_body(player, screen_w, screen_h):
     colors = get_character_colors()
     skin = colors.get("skin", (0.90, 0.75, 0.60))
     shirt = colors.get("shirt", (0.20, 0.40, 0.70))
+    upper_style = colors.get("upper_style", "t_shirt")
 
     swing = getattr(player, 'arm_swing', 0)
 
@@ -569,73 +606,88 @@ def draw_first_person_body(player, screen_w, screen_h):
 
     # ── Arm dimensions (blocky Minecraft style) ──
     arm_w = 24       # width
-    sleeve_h = 45    # upper arm (shirt sleeve)
-    hand_h = 38      # lower arm (skin hand)
+    arm_total_h = 83 # total arm height
+    sleeve_h = 45    # upper arm (shirt sleeve) default for t_shirt
+    hand_h = arm_total_h - sleeve_h  # lower arm (skin hand)
     side_w = 7       # side face width for 3D depth
 
+    # Adjust sleeve based on clothing style
+    if upper_style == "long_sleeve":
+        sleeve_h = arm_total_h  # full arm is shirt
+        hand_h = 0
+    elif upper_style == "t_shirt":
+        sleeve_h = int(arm_total_h * 0.45)
+        hand_h = arm_total_h - sleeve_h
+    elif upper_style == "tank_top" or upper_style == "none":
+        sleeve_h = 0
+        hand_h = arm_total_h
+
     # ── Upper arm — shirt sleeve (front face) ──
-    glColor4f(shirt[0], shirt[1], shirt[2], 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(arm_x, arm_y)
-    glVertex2f(arm_x + arm_w, arm_y)
-    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
-    glVertex2f(arm_x, arm_y + sleeve_h)
-    glEnd()
+    if sleeve_h > 0:
+        glColor4f(shirt[0], shirt[1], shirt[2], 0.96)
+        glBegin(GL_QUADS)
+        glVertex2f(arm_x, arm_y)
+        glVertex2f(arm_x + arm_w, arm_y)
+        glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
+        glVertex2f(arm_x, arm_y + sleeve_h)
+        glEnd()
 
-    # ── Upper arm — right side (darker) ──
-    glColor4f(shirt[0] * 0.65, shirt[1] * 0.65, shirt[2] * 0.65, 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(arm_x + arm_w, arm_y)
-    glVertex2f(arm_x + arm_w + side_w, arm_y + 3)
-    glVertex2f(arm_x + arm_w + side_w, arm_y + sleeve_h + 3)
-    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
-    glEnd()
+        # ── Upper arm — right side (darker) ──
+        glColor4f(shirt[0] * 0.65, shirt[1] * 0.65, shirt[2] * 0.65, 0.96)
+        glBegin(GL_QUADS)
+        glVertex2f(arm_x + arm_w, arm_y)
+        glVertex2f(arm_x + arm_w + side_w, arm_y + 3)
+        glVertex2f(arm_x + arm_w + side_w, arm_y + sleeve_h + 3)
+        glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
+        glEnd()
 
-    # ── Upper arm — bottom edge (slightly lighter for sleeve line) ──
-    glColor4f(shirt[0] * 1.1, shirt[1] * 1.1, shirt[2] * 1.1, 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(arm_x, arm_y + sleeve_h - 3)
-    glVertex2f(arm_x + arm_w, arm_y + sleeve_h - 3)
-    glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
-    glVertex2f(arm_x, arm_y + sleeve_h)
-    glEnd()
+        # ── Upper arm — bottom edge (sleeve line) ──
+        glColor4f(shirt[0] * 1.1, shirt[1] * 1.1, shirt[2] * 1.1, 0.96)
+        glBegin(GL_QUADS)
+        glVertex2f(arm_x, arm_y + sleeve_h - 3)
+        glVertex2f(arm_x + arm_w, arm_y + sleeve_h - 3)
+        glVertex2f(arm_x + arm_w, arm_y + sleeve_h)
+        glVertex2f(arm_x, arm_y + sleeve_h)
+        glEnd()
 
     # ── Hand — skin (front face) ──
-    hx = arm_x + 1
-    hw = arm_w - 2
-    hy = arm_y + sleeve_h
-    glColor4f(skin[0], skin[1], skin[2], 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(hx, hy)
-    glVertex2f(hx + hw, hy)
-    glVertex2f(hx + hw, hy + hand_h)
-    glVertex2f(hx, hy + hand_h)
-    glEnd()
+    if hand_h > 0:
+        hx = arm_x + 1
+        hw = arm_w - 2
+        hy = arm_y + sleeve_h
+        glColor4f(skin[0], skin[1], skin[2], 0.96)
+        glBegin(GL_QUADS)
+        glVertex2f(hx, hy)
+        glVertex2f(hx + hw, hy)
+        glVertex2f(hx + hw, hy + hand_h)
+        glVertex2f(hx, hy + hand_h)
+        glEnd()
 
-    # ── Hand — right side (darker) ──
-    glColor4f(skin[0] * 0.75, skin[1] * 0.75, skin[2] * 0.75, 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(hx + hw, hy)
-    glVertex2f(hx + hw + side_w - 1, hy + 3)
-    glVertex2f(hx + hw + side_w - 1, hy + hand_h + 3)
-    glVertex2f(hx + hw, hy + hand_h)
-    glEnd()
+        # ── Hand — right side (darker) ──
+        glColor4f(skin[0] * 0.75, skin[1] * 0.75, skin[2] * 0.75, 0.96)
+        glBegin(GL_QUADS)
+        glVertex2f(hx + hw, hy)
+        glVertex2f(hx + hw + side_w - 1, hy + 3)
+        glVertex2f(hx + hw + side_w - 1, hy + hand_h + 3)
+        glVertex2f(hx + hw, hy + hand_h)
+        glEnd()
 
-    # ── Hand — top edge (lighter for wrist line) ──
-    glColor4f(skin[0] * 1.05, skin[1] * 1.05, skin[2] * 1.05, 0.96)
-    glBegin(GL_QUADS)
-    glVertex2f(hx - 1, hy)
-    glVertex2f(hx + hw - 1, hy)
-    glVertex2f(hx + hw + side_w - 2, hy + 3)
-    glVertex2f(hx - 1 + side_w, hy + 3)
-    glEnd()
+        # ── Hand — top edge (wrist line) ──
+        if sleeve_h > 0:
+            glColor4f(skin[0] * 1.05, skin[1] * 1.05, skin[2] * 1.05, 0.96)
+            glBegin(GL_QUADS)
+            glVertex2f(hx - 1, hy)
+            glVertex2f(hx + hw - 1, hy)
+            glVertex2f(hx + hw + side_w - 2, hy + 3)
+            glVertex2f(hx - 1 + side_w, hy + 3)
+            glEnd()
 
     # ── Held block/item on top of hand ──
     held_item = player.hotbar[player.selected_slot]
     if held_item and held_item in ITEM_COLORS:
         c = ITEM_COLORS[held_item][1]
-        bx = hx + 2
-        by = hy + hand_h + 4
+        bx = arm_x + 2
+        by = arm_y + sleeve_h + hand_h + 4
         bs = 22
         # Front face
         glColor4f(c[0] * 0.8, c[1] * 0.8, c[2] * 0.8, 0.96)

@@ -1,6 +1,6 @@
 """Pythmc - Procedural Sound System
 
-Generates all sound effects using numpy waveforms.
+Generates all sound effects and background music using numpy waveforms.
 No external audio files needed!
 """
 
@@ -328,3 +328,150 @@ class SoundGenerator:
 
 # Global sound manager
 sound_manager = SoundGenerator()
+
+
+class MusicGenerator:
+    """Procedural ambient background music generator."""
+
+    def __init__(self):
+        self.playing = False
+        self.volume = 0.25
+        self._channel = None
+        self._sound = None
+        self._thread = None
+
+    def start(self):
+        """Generate and start playing ambient music loop."""
+        if self.playing:
+            return
+        try:
+            self._sound = self._generate_track()
+            self._channel = pygame.mixer.Channel(7)
+            self._channel.set_volume(self.volume)
+            self.playing = True
+            self._loop()
+        except Exception:
+            self.playing = False
+
+    def stop(self):
+        """Stop music."""
+        self.playing = False
+        if self._channel:
+            try:
+                self._channel.stop()
+            except Exception:
+                pass
+
+    def set_volume(self, v):
+        self.volume = max(0.0, min(1.0, v))
+        if self._channel:
+            try:
+                self._channel.set_volume(self.volume)
+            except Exception:
+                pass
+
+    def _loop(self):
+        """Internal: keep looping the track."""
+        if not self.playing or not self._channel or not self._sound:
+            return
+        try:
+            self._channel.play(self._sound)
+        except Exception:
+            self.playing = False
+
+    def update(self):
+        """Call from game loop to keep music looping."""
+        if not self.playing:
+            return
+        if self._channel and not self._channel.get_busy():
+            self._loop()
+
+    def _generate_track(self):
+        """Generate a ~20 second ambient pad loop."""
+        duration = 20.0
+        n = int(SAMPLE_RATE * duration)
+        t = np.linspace(0, duration, n, False)
+
+        # Chord progression: Am -> F -> C -> G (ambient style)
+        # Each chord lasts 5 seconds
+        chord_freqs = [
+            # Am
+            [110.0, 130.81, 164.81, 220.0, 329.63],
+            # F
+            [87.31, 130.81, 174.61, 261.63, 349.23],
+            # C
+            [130.81, 164.81, 196.0, 261.63, 392.0],
+            # G
+            [98.0, 146.83, 196.0, 293.66, 392.0],
+        ]
+
+        pad = np.zeros(n)
+        chord_len = n // 4
+
+        for ci, freqs in enumerate(chord_freqs):
+            start = ci * chord_len
+            end = min((ci + 1) * chord_len, n)
+            seg_t = t[start:end]
+
+            for f in freqs:
+                # Sine pad with slow vibrato
+                vibrato = 1.0 + 0.003 * np.sin(2 * np.pi * 0.3 * seg_t)
+                tone = np.sin(2 * np.pi * f * vibrato * seg_t) * 0.08
+
+                # Slight octave shimmer
+                tone += np.sin(2 * np.pi * f * 2 * seg_t) * 0.03
+
+                pad[start:end] += tone
+
+            # Crossfade between chords
+            fade_len = min(2000, chord_len // 4)
+            if ci > 0 and start + fade_len < n:
+                fade_in = np.linspace(0, 1, fade_len)
+                pad[start:start+fade_len] *= fade_in
+
+        # Gentle arpeggio layer
+        arp_notes = [261.63, 329.63, 392.0, 523.25, 392.0, 329.63]
+        arp = np.zeros(n)
+        note_dur = 0.8
+        for i in range(int(duration / note_dur)):
+            freq = arp_notes[i % len(arp_notes)]
+            note_start = int(i * note_dur * SAMPLE_RATE)
+            note_end = min(note_start + int(note_dur * SAMPLE_RATE), n)
+            if note_start >= n:
+                break
+            seg_t = np.linspace(0, note_dur, note_end - note_start, False)
+            # Soft pluck envelope
+            env = np.exp(-seg_t * 3.0) * 0.04
+            arp[note_start:note_end] += np.sin(2 * np.pi * freq * seg_t) * env
+
+        # Sub bass following root notes
+        bass_freqs = [55.0, 43.65, 65.41, 49.0]
+        bass = np.zeros(n)
+        for ci, bf in enumerate(bass_freqs):
+            start = ci * chord_len
+            end = min((ci + 1) * chord_len, n)
+            seg_t = t[start:end]
+            bass[start:end] += np.sin(2 * np.pi * bf * seg_t) * 0.06
+
+        # Mix
+        mix = pad + arp + bass
+
+        # Global fade in/out
+        fade_s = int(2.0 * SAMPLE_RATE)
+        mix[:fade_s] *= np.linspace(0, 1, fade_s)
+        mix[-fade_s:] *= np.linspace(1, 0, fade_s)
+
+        # Normalize
+        peak = np.max(np.abs(mix))
+        if peak > 0:
+            mix = mix / peak * 0.7
+
+        # Convert to stereo pygame Sound
+        mix = np.clip(mix, -1, 1)
+        samples = (mix * 32767).astype(np.int16)
+        stereo = np.column_stack((samples, samples))
+        return pygame.sndarray.make_sound(stereo)
+
+
+# Global music generator
+music = MusicGenerator()

@@ -110,6 +110,12 @@ python3 run.py
 - Sneaking mechanic (Shift on ground: slower speed, edge protection, crouch view)
 - Survival HUD fix (item name above hearts, no overlap)
 
+### Loading, Music & Icon (V2.6)
+- Game window icon (Pythmc logo)
+- Animated loading screen with progress bar, world name, and gameplay tips
+- Procedural ambient background music (layered pads, arpeggios, bass)
+- Music auto-plays during gameplay, loops seamlessly
+
 ### Technical
 - 25+ procedural sound effects (no audio files)
 - Procedural texture generation (no image files for blocks)
@@ -126,7 +132,7 @@ python3 run.py
 
 ## Architecture
 
-34 Python source files, ~14,000+ lines of code.
+35 Python source files, ~16,000+ lines of code.
 
 ```
 run.py                  Entry point

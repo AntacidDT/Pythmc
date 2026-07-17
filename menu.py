@@ -260,7 +260,7 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.5  -  STABILITY", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.6  -  MUSIC & LOADING", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
         # Buttons

@@ -1,4 +1,4 @@
-"""Pythmc - Renderer, HUD, and Visual Effects - V2.5"""
+"""Pythmc - Renderer, HUD, and Visual Effects - V2.6"""
 
 import math
 import random

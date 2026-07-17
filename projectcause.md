@@ -2,7 +2,7 @@
 
 **Full name:** Pythmc (Python Minecraft)
 **Engine:** Pythkernel
-**Version:** V2.5 - The Stability Update
+**Version:** V2.6 - Loading Screen, Music & Icon
 **Language:** Python 3
 **Graphics:** PyOpenGL (immediate mode)
 **Audio:** Pygame mixer

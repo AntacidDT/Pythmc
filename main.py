@@ -3,9 +3,8 @@
 Pythmc - Minecraft Clone
 Main orchestrator - ties all systems together
 
-V2.5 - Stability and Optimization Update
-  Font outline, character customization, 3D menu backgrounds, first-person hand,
-  multiplayer name tags, sneaking mechanic, HUD fixes
+V2.6 - Loading Screen, Background Music, Game Icon
+  Window icon, animated loading screen, procedural ambient music
 
 Controls:
   WASD - Move | Space - Jump | Shift - Sneak (ground) / Descend (fly) | Ctrl - Sprint
@@ -37,7 +36,7 @@ from menu import MainMenu, PauseMenu, SettingsMenu, CharacterCustomizationScreen
 from inventory_ui import CraftingUI
 from text_renderer import text_renderer
 from textures import texture_manager
-from sounds import sound_manager
+from sounds import sound_manager, music
 from terminal import Terminal
 from obj_loader import mob_renderer
 from builder import StructureBuilder
@@ -68,6 +67,7 @@ class GameState:
     HOST_GAME = "host_game"
     JOIN_GAME = "join_game"
     CHARACTER = "character"
+    LOADING = "loading"
 
 
 class Game:
@@ -77,6 +77,16 @@ class Game:
         pygame.display.gl_set_attribute(pygame.GL_DOUBLEBUFFER, 1)
         self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), DOUBLEBUF | OPENGL)
         pygame.display.set_caption("Pythmc")
+
+        # V2.6: Game icon
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "pythmc.jpg")
+            if os.path.exists(icon_path):
+                icon_surf = pygame.image.load(icon_path).convert()
+                pygame.display.set_icon(icon_surf)
+        except Exception:
+            pass
+
         self.clock = pygame.time.Clock()
         self.running = True
         self.keys = {}
@@ -134,6 +144,13 @@ class Game:
         self.day_speed = settings_manager.get("world", "day_speed")
         self.world_time = 0.0
 
+        # V2.6: Loading screen state
+        self.loading_meta = None
+        self.loading_timer = 0.0
+        self.loading_step = 0
+        self.loading_tip = ""
+        self._pick_loading_tip()
+
         self.last_break = 0
         self.last_place = 0
         self.fps_counter = 0
@@ -168,6 +185,24 @@ class Game:
             obj_path = os.path.join(mobs_dir, filename)
             if os.path.exists(obj_path):
                 mob_renderer.load_model(entity_type, obj_path, scale=1.0)
+
+    def _pick_loading_tip(self):
+        tips = [
+            "Press F to fly in Creative mode",
+            "Use E to open your crafting table",
+            "Right-click food to eat it",
+            "Shift while walking to sneak",
+            "F5 toggles third-person view",
+            "G freezes the day/night cycle",
+            "Animals drop food when defeated",
+            "Diamond is the strongest material",
+            "Lava flows slower than water",
+            "TNT can be ignited with left click",
+            "Furnaces cook raw food into meals",
+            "Crouch at edges to avoid falling",
+        ]
+        import random
+        self.loading_tip = random.choice(tips)
 
     def _init_game(self, world_meta=None):
         init_gl()
@@ -230,6 +265,7 @@ class Game:
             setattr(const, key.upper(), value)
 
     def _save_and_exit(self):
+        music.stop()
         if self.current_world_name and self.current_world_meta:
             session_time = time.time() - self.play_session_start
             world_manager.update_play_time(self.current_world_name, session_time)
@@ -310,6 +346,7 @@ class Game:
                         pygame.mouse.set_visible(False)
                         pygame.event.set_grab(True)
                         self._center_mouse()
+                        music.start()
                     else:
                         self.host_screen.status = "Failed to host!"
 
@@ -325,6 +362,7 @@ class Game:
                         pygame.mouse.set_visible(False)
                         pygame.event.set_grab(True)
                         self._center_mouse()
+                        music.start()
                     else:
                         self.join_screen.status = "Failed to connect!"
 
@@ -358,13 +396,11 @@ class Game:
                 elif result == "create_new":
                     self.state = GameState.WORLD_CREATE
                 elif isinstance(result, dict) and result.get("action") == "play":
-                    world_meta = result["world"]
-                    self._init_game(world_meta)
-                    self.state = GameState.PLAYING
-                    self.mouse_captured = True
-                    pygame.mouse.set_visible(False)
-                    pygame.event.set_grab(True)
-                    self._center_mouse()
+                    self.loading_meta = result["world"]
+                    self.loading_timer = 0.0
+                    self.loading_step = 0
+                    self._pick_loading_tip()
+                    self.state = GameState.LOADING
 
             elif self.state == GameState.WORLD_CREATE:
                 result = self.world_create.handle_event(event)
@@ -380,12 +416,11 @@ class Game:
                             result.get("io_enabled", False),
                             result.get("world_settings", None),
                         )
-                        self._init_game(meta)
-                        self.state = GameState.PLAYING
-                        self.mouse_captured = True
-                        pygame.mouse.set_visible(False)
-                        pygame.event.set_grab(True)
-                        self._center_mouse()
+                        self.loading_meta = meta
+                        self.loading_timer = 0.0
+                        self.loading_step = 0
+                        self._pick_loading_tip()
+                        self.state = GameState.LOADING
                     except ValueError:
                         pass
 
@@ -803,6 +838,8 @@ class Game:
             self.fps_counter = 0
             self.fps_timer = 0
 
+        music.update()
+
     def _render_game(self):
         if not self.world or not self.player:
             return
@@ -1112,7 +1149,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.5 - Stability Update")
+        print("  V2.6 - Loading Screen, Music & Icon")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Shift - Sneak | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -1128,7 +1165,7 @@ class Game:
                 self._tick(dt)
             except Exception as e:
                 import traceback
-                print(f"\n[V2.5 CRASH] {type(e).__name__}: {e}")
+                print(f"\n[V2.6 CRASH] {type(e).__name__}: {e}")
                 traceback.print_exc()
                 if self.state == GameState.PLAYING and self.world:
                     print("  Attempting recovery to pause menu...")
@@ -1167,7 +1204,7 @@ class Game:
                 tp = "[TP]" if self.player.third_person else ""
                 mobs = f"Mobs:{len(self.entity_manager.entities) if self.entity_manager else 0}"
                 px, py, pz = self.player.pos if self.player is not None else (0, 0, 0)
-                caption = f"Pythmc V2.5 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                caption = f"Pythmc V2.6 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                 pygame.display.set_caption(caption)
 
         elif self.state == GameState.PAUSED:
@@ -1218,6 +1255,140 @@ class Game:
             self.character_screen.update(dt, pygame.mouse.get_pos())
             self.character_screen.draw()
             pygame.display.flip()
+
+        elif self.state == GameState.LOADING:
+            self._tick_loading(dt)
+
+    def _tick_loading(self, dt):
+        """Multi-frame loading screen."""
+        self.loading_timer += dt
+
+        # Draw loading screen
+        self._draw_loading_screen()
+
+        if self.loading_step == 0 and self.loading_timer > 0.15:
+            # After showing 0% briefly, do the actual init
+            self.loading_step = 1
+            self._init_game(self.loading_meta)
+            self.loading_timer = 0.0
+
+        elif self.loading_step == 1 and self.loading_timer > 0.1:
+            # Brief moment showing 100% so the player sees it completed
+            self._draw_loading_screen(1.0)
+            pygame.display.flip()
+            self.loading_step = 2
+            self.loading_timer = 0.0
+
+        elif self.loading_step == 2:
+            # Done — transition to playing
+            self.state = GameState.PLAYING
+            self.mouse_captured = True
+            pygame.mouse.set_visible(False)
+            pygame.event.set_grab(True)
+            self._center_mouse()
+            music.start()
+            return
+
+        pygame.display.flip()
+
+    def _draw_loading_screen(self, progress=None):
+        """Draw animated loading screen with progress bar."""
+        glDisable(GL_LIGHTING)
+        glDisable(GL_DEPTH_TEST)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(0, SCREEN_W, 0, SCREEN_H, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+        # Dark background
+        glClear(GL_COLOR_BUFFER_BIT)
+        glDisable(GL_TEXTURE_2D)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        # Background gradient (dark blue-black)
+        glBegin(GL_QUADS)
+        glColor4f(0.05, 0.05, 0.12, 1.0)
+        glVertex2f(0, 0)
+        glVertex2f(SCREEN_W, 0)
+        glColor4f(0.02, 0.02, 0.06, 1.0)
+        glVertex2f(SCREEN_W, SCREEN_H)
+        glVertex2f(0, SCREEN_H)
+        glEnd()
+
+        # Animate progress bar
+        if progress is None:
+            bar_fill = min(1.0, self.loading_timer / 2.0) * 0.4
+            if self.loading_step >= 1:
+                bar_fill = 0.4 + min(1.0, self.loading_timer / 0.5) * 0.6
+        else:
+            bar_fill = progress
+
+        # Progress bar background
+        bar_w = 400
+        bar_h = 24
+        bar_x = (SCREEN_W - bar_w) // 2
+        bar_y = SCREEN_H // 2 - 40
+
+        glColor4f(0.15, 0.15, 0.2, 0.9)
+        glBegin(GL_QUADS)
+        glVertex2f(bar_x, bar_y)
+        glVertex2f(bar_x + bar_w, bar_y)
+        glVertex2f(bar_x + bar_w, bar_y + bar_h)
+        glVertex2f(bar_x, bar_y + bar_h)
+        glEnd()
+
+        # Progress bar fill (animated teal)
+        fill_w = int(bar_w * bar_fill)
+        pulse = 0.7 + 0.3 * math.sin(time.time() * 3)
+        glColor4f(0.1 * pulse, 0.75 * pulse, 0.72 * pulse, 1.0)
+        glBegin(GL_QUADS)
+        glVertex2f(bar_x + 2, bar_y + 2)
+        glVertex2f(bar_x + fill_w - 2, bar_y + 2)
+        glVertex2f(bar_x + fill_w - 2, bar_y + bar_h - 2)
+        glVertex2f(bar_x + 2, bar_y + bar_h - 2)
+        glEnd()
+
+        # Title
+        text_renderer.draw_text_shadow(
+            SCREEN_W // 2 - 80, SCREEN_H // 2 + 20,
+            "Pythmc", "large", (0.95, 0.95, 1.0))
+
+        # Status text
+        if self.loading_step == 0:
+            status = "Preparing world..."
+        elif self.loading_step == 1:
+            status = "Generating terrain..."
+        else:
+            status = "Ready!"
+
+        text_renderer.draw_text_shadow(
+            SCREEN_W // 2 - 100, SCREEN_H // 2 - 70,
+            status, "small", (0.7, 0.8, 0.85))
+
+        # World name
+        if self.loading_meta:
+            wname = self.loading_meta.get("name", "World")
+            text_renderer.draw_text_shadow(
+                SCREEN_W // 2 - 60, SCREEN_H // 2 + 50,
+                f'"{wname}"', "small", (0.6, 0.6, 0.65))
+
+        # Loading tip
+        if self.loading_tip:
+            text_renderer.draw_text_shadow(
+                SCREEN_W // 2 - 140, SCREEN_H // 2 - 110,
+                f"Tip: {self.loading_tip}", "small", (0.5, 0.55, 0.6))
+
+        # Animated dots
+        dots = "." * (int(time.time() * 3) % 4)
+        text_renderer.draw_text_shadow(
+            SCREEN_W // 2 - 20, SCREEN_H // 2 - 90,
+            f"Loading{dots}", "small", (0.8, 0.8, 0.8))
+
+        glDisable(GL_BLEND)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_LIGHTING)
 
     def _safe_return_to_menu(self):
         try:

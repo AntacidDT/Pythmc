@@ -363,6 +363,8 @@ class TextureManager:
     
     def bind(self):
         """Bind the texture atlas."""
+        if self.atlas_id is None:
+            return
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.atlas_id)
     

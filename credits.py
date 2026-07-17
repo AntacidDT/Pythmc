@@ -23,12 +23,16 @@ class CreditsScreen:
     def _ensure_world(self):
         if self.world_loaded:
             return
-        from world import World
-        self.world = World(seed=42)
-        for cx in range(-2, 3):
-            for cz in range(-2, 3):
-                self.world.get_chunk(cx, cz)
-        self.world_loaded = True
+        try:
+            from world import World
+            self.world = World(seed=42)
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.world.get_chunk(cx, cz)
+            self.world_loaded = True
+        except Exception as e:
+            print(f"Credits world gen failed: {e}")
+            self.world_loaded = True
 
     def handle_event(self, event):
         if event.type == MOUSEBUTTONDOWN:

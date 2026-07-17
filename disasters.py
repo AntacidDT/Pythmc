@@ -179,16 +179,16 @@ class Earthquake(Disaster):
             chains = []
             if biome in ("ocean",) or self._near_water():
                 if self.rng.random() < 0.35:
-                    chains.append(("tsunami", dict(self.pos)))
+                    chains.append(("tsunami", [float(self.pos[0]), float(self.pos[1]), float(self.pos[2])]))
             if biome == "plains":
                 if self.rng.random() < 0.2:
-                    chains.append(("sinkhole", dict(self.pos)))
+                    chains.append(("sinkhole", [float(self.pos[0]), float(self.pos[1]), float(self.pos[2])]))
             if biome == "snow":
                 if self.rng.random() < 0.25:
-                    chains.append(("avalanche", dict(self.pos)))
+                    chains.append(("avalanche", [float(self.pos[0]), float(self.pos[1]), float(self.pos[2])]))
             if biome in ("mountain", "desert", "snow"):
                 if self.rng.random() < 0.1:
-                    chains.append(("volcanic", dict(self.pos)))
+                    chains.append(("volcanic", [float(self.pos[0]), float(self.pos[1]), float(self.pos[2])]))
             return chains
         return []
 

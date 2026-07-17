@@ -616,7 +616,10 @@ class EntityManager:
                 continue
             forward_2d = player_forward.copy()
             forward_2d[1] = 0
-            forward_2d /= np.linalg.norm(forward_2d)
+            forward_norm = np.linalg.norm(forward_2d)
+            if forward_norm < 0.001:
+                continue
+            forward_2d /= forward_norm
             to_entity_norm = to_entity / dist
             dot = np.dot(forward_2d, to_entity_norm)
             if dot > 0.5 and dist < best_dist:

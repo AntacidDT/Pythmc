@@ -3,7 +3,7 @@
 Pythmc - Minecraft Clone
 Main orchestrator - ties all systems together
 
-V2.4 - The Better Quality Update
+V2.5 - Stability and Optimization Update
   Font outline, character customization, 3D menu backgrounds, first-person hand,
   multiplayer name tags, sneaking mechanic, HUD fixes
 
@@ -510,6 +510,8 @@ class Game:
                 self._center_mouse()
 
     def _break_or_attack(self):
+        if not self.world or not self.player or not self.entity_manager:
+            return
         now = time.time()
         if now - self.last_break < BREAK_COOLDOWN:
             return
@@ -565,6 +567,8 @@ class Game:
                 self.world.dirty_chunks.discard(key)
 
     def _right_click_use(self):
+        if not self.world or not self.player or not self.entity_manager:
+            return
         now = time.time()
         if now - self.last_place < PLACE_COOLDOWN:
             return
@@ -676,6 +680,8 @@ class Game:
             sound_manager.play('break_stone')
 
     def _update_game(self, dt):
+        if not self.world or not self.player or not self.entity_manager:
+            return
         self.player.update(dt, self.keys)
         
         if multiplayer.is_connected():
@@ -798,6 +804,8 @@ class Game:
             self.fps_timer = 0
 
     def _render_game(self):
+        if not self.world or not self.player:
+            return
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         # Camera (first or third person)
@@ -1104,9 +1112,9 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.4 - The Better Quality Update")
+        print("  V2.5 - Stability Update")
         print("=" * 50)
-        print("  WASD - Move | Space - Jump | Ctrl - Sprint")
+        print("  WASD - Move | Space - Jump | Shift - Sneak | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
         print("  Mouse - Look | LClick - Break/Attack | RClick - Use/Place")
         print("  1-9 - Hotbar | E - Crafting/Furnace | R - Respawn")
@@ -1116,83 +1124,112 @@ class Game:
 
         dt = 0
         while self.running:
-            if self.state == GameState.MENU:
-                self._handle_menu_events()
-                self.main_menu.update(dt, pygame.mouse.get_pos())
-                self.main_menu.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.PLAYING:
-                self._handle_game_events()
-                if self.state == GameState.PLAYING:
-                    self._update_game(dt)
-                    self._render_game()
-                    pygame.display.flip()
-
-                    mode = "Creative" if self.player.creative else "Survival"
-                    fly = "[Fly]" if self.player.flying else ""
-                    sprint = "[Sprint]" if self.player.sprinting else ""
-                    sneak = "[Sneak]" if self.player.sneaking else ""
-                    water = "[Swim]" if self.player.in_water else ""
-                    dead = "[DEAD]" if self.player.dead else ""
-                    tp = "[TP]" if self.player.third_person else ""
-                    mobs = f"Mobs:{len(self.entity_manager.entities)}"
-                    px, py, pz = self.player.pos
-                    caption = f"Pythmc V2.4 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
-                    pygame.display.set_caption(caption)
-
-            elif self.state == GameState.PAUSED:
-                self._handle_menu_events()
-                self.pause_menu.update(dt, pygame.mouse.get_pos())
-                self._render_game()
-                self.pause_menu.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.SETTINGS:
-                self._handle_menu_events()
-                self.settings_menu.update(dt, pygame.mouse.get_pos())
-                self.settings_menu.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.WORLD_SELECT:
-                self._handle_menu_events()
-                self.world_select.update(dt, pygame.mouse.get_pos())
-                self.world_select.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.WORLD_CREATE:
-                self._handle_menu_events()
-                self.world_create.update(dt, pygame.mouse.get_pos())
-                self.world_create.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.CREDITS:
-                self._handle_menu_events()
-                self.credits_screen.update(dt, pygame.mouse.get_pos())
-                self.credits_screen.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.HOST_GAME:
-                self._handle_menu_events()
-                self.host_screen.update(dt, pygame.mouse.get_pos())
-                self.host_screen.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.JOIN_GAME:
-                self._handle_menu_events()
-                self.join_screen.update(dt, pygame.mouse.get_pos())
-                self.join_screen.draw()
-                pygame.display.flip()
-
-            elif self.state == GameState.CHARACTER:
-                self._handle_menu_events()
-                self.character_screen.update(dt, pygame.mouse.get_pos())
-                self.character_screen.draw()
-                pygame.display.flip()
+            try:
+                self._tick(dt)
+            except Exception as e:
+                import traceback
+                print(f"\n[V2.5 CRASH] {type(e).__name__}: {e}")
+                traceback.print_exc()
+                if self.state == GameState.PLAYING and self.world:
+                    print("  Attempting recovery to pause menu...")
+                    self.state = GameState.PAUSED
+                    self.mouse_captured = False
+                    pygame.mouse.set_visible(True)
+                    pygame.event.set_grab(False)
+                else:
+                    print("  Returning to main menu...")
+                    self._safe_return_to_menu()
 
             dt = self.clock.tick(FPS) / 1000.0
 
         pygame.quit()
+
+    def _tick(self, dt):
+        if self.state == GameState.MENU:
+            self._handle_menu_events()
+            self.main_menu.update(dt, pygame.mouse.get_pos())
+            self.main_menu.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.PLAYING:
+            self._handle_game_events()
+            if self.state == GameState.PLAYING:
+                self._update_game(dt)
+                self._render_game()
+                pygame.display.flip()
+
+                mode = "Creative" if self.player.creative else "Survival"
+                fly = "[Fly]" if self.player.flying else ""
+                sprint = "[Sprint]" if self.player.sprinting else ""
+                sneak = "[Sneak]" if self.player.sneaking else ""
+                water = "[Swim]" if self.player.in_water else ""
+                dead = "[DEAD]" if self.player.dead else ""
+                tp = "[TP]" if self.player.third_person else ""
+                mobs = f"Mobs:{len(self.entity_manager.entities) if self.entity_manager else 0}"
+                px, py, pz = self.player.pos if self.player is not None else (0, 0, 0)
+                caption = f"Pythmc V2.5 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                pygame.display.set_caption(caption)
+
+        elif self.state == GameState.PAUSED:
+            self._handle_menu_events()
+            self.pause_menu.update(dt, pygame.mouse.get_pos())
+            self._render_game()
+            self.pause_menu.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.SETTINGS:
+            self._handle_menu_events()
+            self.settings_menu.update(dt, pygame.mouse.get_pos())
+            self.settings_menu.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.WORLD_SELECT:
+            self._handle_menu_events()
+            self.world_select.update(dt, pygame.mouse.get_pos())
+            self.world_select.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.WORLD_CREATE:
+            self._handle_menu_events()
+            self.world_create.update(dt, pygame.mouse.get_pos())
+            self.world_create.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.CREDITS:
+            self._handle_menu_events()
+            self.credits_screen.update(dt, pygame.mouse.get_pos())
+            self.credits_screen.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.HOST_GAME:
+            self._handle_menu_events()
+            self.host_screen.update(dt, pygame.mouse.get_pos())
+            self.host_screen.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.JOIN_GAME:
+            self._handle_menu_events()
+            self.join_screen.update(dt, pygame.mouse.get_pos())
+            self.join_screen.draw()
+            pygame.display.flip()
+
+        elif self.state == GameState.CHARACTER:
+            self._handle_menu_events()
+            self.character_screen.update(dt, pygame.mouse.get_pos())
+            self.character_screen.draw()
+            pygame.display.flip()
+
+    def _safe_return_to_menu(self):
+        try:
+            self._save_and_exit()
+        except Exception:
+            self.world = None
+            self.player = None
+            self.entity_manager = None
+        self.state = GameState.MENU
+        self.mouse_captured = False
+        pygame.mouse.set_visible(True)
+        pygame.event.set_grab(False)
 
 
 if __name__ == "__main__":

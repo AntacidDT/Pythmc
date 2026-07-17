@@ -308,10 +308,13 @@ class SoundGenerator:
         """Play a sound effect."""
         if not self.initialized:
             return
-        sound = self.sounds.get(sound_name)
-        if sound:
-            sound.set_volume(self.volume * volume_mult)
-            sound.play()
+        try:
+            sound = self.sounds.get(sound_name)
+            if sound:
+                sound.set_volume(self.volume * volume_mult)
+                sound.play()
+        except Exception:
+            pass
     
     def play_random(self, sound_names, volume_mult=1.0):
         """Play a random sound from a list."""

@@ -139,12 +139,16 @@ class MainMenu:
     def _ensure_world(self):
         if self.world_loaded:
             return
-        from world import World
-        self.world = World(seed=42)
-        for cx in range(-2, 3):
-            for cz in range(-2, 3):
-                self.world.get_chunk(cx, cz)
-        self.world_loaded = True
+        try:
+            from world import World
+            self.world = World(seed=42)
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.world.get_chunk(cx, cz)
+            self.world_loaded = True
+        except Exception as e:
+            print(f"Menu world gen failed: {e}")
+            self.world_loaded = True
 
     def handle_event(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
@@ -256,7 +260,7 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.4  -  BETTER QUALITY", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.5  -  STABILITY", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
         # Buttons
@@ -486,12 +490,16 @@ class SettingsMenu:
     def _ensure_world(self):
         if self.world_loaded:
             return
-        from world import World
-        self.world = World(seed=42)
-        for cx in range(-2, 3):
-            for cz in range(-2, 3):
-                self.world.get_chunk(cx, cz)
-        self.world_loaded = True
+        try:
+            from world import World
+            self.world = World(seed=42)
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.world.get_chunk(cx, cz)
+            self.world_loaded = True
+        except Exception as e:
+            print(f"Settings world gen failed: {e}")
+            self.world_loaded = True
 
     def handle_event(self, event):
         if event.type == MOUSEBUTTONDOWN and event.button == 1:

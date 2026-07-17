@@ -1,4 +1,4 @@
-"""Pythmc - Renderer, HUD, and Visual Effects - V2.4"""
+"""Pythmc - Renderer, HUD, and Visual Effects - V2.5"""
 
 import math
 import random
@@ -22,6 +22,23 @@ def get_character_colors():
         "pants": _c("pants_r", "pants_g", "pants_b"),
         "eyes": _c("eyes_r", "eyes_g", "eyes_b"),
     }
+
+
+def reset_gl_state():
+    """Reset GL state to known defaults. Call after errors."""
+    glDisable(GL_BLEND)
+    glDisable(GL_LIGHTING)
+    glDisable(GL_FOG)
+    glDisable(GL_DEPTH_TEST)
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+    glPopMatrix() if _gl_stack_depth() > 0 else None
+
+
+def _gl_stack_depth():
+    try:
+        return len(glGetInteger(GL_MODELVIEW_MATRIX))
+    except Exception:
+        return 0
 
 
 class Particle:

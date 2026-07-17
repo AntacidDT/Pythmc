@@ -1,0 +1,47 @@
+{
+  "physics": {
+    "gravity": -25.0,
+    "jump_speed": 9.0,
+    "player_height": 1.62,
+    "player_width": 0.3,
+    "walk_speed": 4.3,
+    "sprint_speed": 6.5,
+    "swim_speed": 3.0,
+    "fly_speed": 12.0,
+    "break_cooldown": 0.2,
+    "place_cooldown": 0.2,
+    "max_reach": 6.0,
+    "water_drag": 0.6
+  },
+  "world": {
+    "chunk_size": 16,
+    "chunk_height": 64,
+    "render_distance": 4,
+    "day_speed": 0.005
+  },
+  "screen": {
+    "screen_w": 1280,
+    "screen_h": 720,
+    "fps": 240,
+    "fov": 70,
+    "sensitivity": 0.15,
+    "volume": 0.5
+  },
+  "gpu": {
+    "cuda_enabled": 1
+  },
+  "appearance": {
+    "skin_r": 230,
+    "skin_g": 191,
+    "skin_b": 153,
+    "shirt_r": 51,
+    "shirt_g": 128,
+    "shirt_b": 204,
+    "pants_r": 77,
+    "pants_g": 77,
+    "pants_b": 153,
+    "eyes_r": 26,
+    "eyes_g": 77,
+    "eyes_b": 153
+  }
+}

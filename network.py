@@ -36,7 +36,7 @@ def get_local_ip():
         ip = s.getsockname()[0]
         s.close()
         return ip
-    except:
+    except Exception:
         return "127.0.0.1"
 
 
@@ -69,7 +69,7 @@ def find_servers(timeout=3):
             except socket.timeout:
                 break
         sock.close()
-    except:
+    except Exception:
         pass
     return servers
 
@@ -132,7 +132,7 @@ class GameServer:
         if self.server_socket:
             try:
                 self.server_socket.close()
-            except:
+            except Exception:
                 pass
         
         # Notify all players
@@ -141,7 +141,7 @@ class GameServer:
                 try:
                     self._send_to(player["socket"], {"type": "server_closed"})
                     player["socket"].close()
-                except:
+                except Exception:
                     pass
             self.players.clear()
     
@@ -168,10 +168,10 @@ class GameServer:
                         sock.sendto(response, addr)
                 except socket.timeout:
                     continue
-                except:
+                except Exception:
                     pass
             sock.close()
-        except:
+        except Exception:
             pass
     
     def _server_loop(self):
@@ -182,9 +182,10 @@ class GameServer:
                 client_socket, addr = self.server_socket.accept()
                 client_socket.setblocking(False)
                 print(f"Connection from {addr}")
+                self.register_client_socket(addr, client_socket)
             except BlockingIOError:
                 pass
-            except:
+            except Exception:
                 pass
             
             # Handle existing clients
@@ -202,16 +203,20 @@ class GameServer:
                         self._remove_player(addr)
                     except BlockingIOError:
                         pass
-                    except:
+                    except Exception:
                         pass
             
             # Broadcast block changes
+            blocks_to_send = []
             with self.blocks_lock:
                 if self.pending_blocks:
-                    for addr, player in self.players.items():
-                        for block_data in self.pending_blocks:
-                            self._send_to(player["socket"], block_data)
+                    blocks_to_send = self.pending_blocks[:]
                     self.pending_blocks.clear()
+            if blocks_to_send:
+                with self.player_lock:
+                    for addr, player in self.players.items():
+                        for block_data in blocks_to_send:
+                            self._send_to(player["socket"], block_data)
             
             time.sleep(1.0 / TICK_RATE)
     
@@ -233,7 +238,7 @@ class GameServer:
                     self._handle_block(addr, msg)
                 elif msg_type == "chat":
                     self._handle_chat(addr, msg)
-        except:
+        except Exception:
             pass
     
     def _handle_join(self, addr, msg):
@@ -289,10 +294,10 @@ class GameServer:
             self.pending_blocks.append(msg)
         
         if self.on_block_change:
-            self.on_block_change(
-                msg.get("x"), msg.get("y"), msg.get("z"),
-                msg.get("block_type")
-            )
+            x, y, z = msg.get("x"), msg.get("y"), msg.get("z")
+            block_type = msg.get("block_type")
+            if x is not None and y is not None and z is not None and block_type is not None:
+                self.on_block_change(x, y, z, block_type)
     
     def _handle_chat(self, addr, msg):
         """Handle chat message."""
@@ -316,7 +321,7 @@ class GameServer:
                 name = self.players[addr]["name"]
                 try:
                     self.players[addr]["socket"].close()
-                except:
+                except Exception:
                     pass
                 del self.players[addr]
                 
@@ -336,7 +341,7 @@ class GameServer:
         try:
             data = json.dumps(msg).encode() + b"\n"
             sock.sendall(data)
-        except:
+        except (BrokenPipeError, ConnectionResetError, OSError):
             pass
     
     def _send_to_addr(self, addr, msg):
@@ -441,7 +446,7 @@ class GameClient:
             try:
                 self._send({"type": "leave"})
                 self.socket.close()
-            except:
+            except Exception:
                 pass
     
     def update_position(self, pos, yaw, pitch):
@@ -555,7 +560,7 @@ class GameClient:
                                     msg = json.loads(msg_str)
                                     with self.queue_lock:
                                         self.message_queue.append(msg)
-                                except:
+                                except (json.JSONDecodeError, ValueError):
                                     pass
                     else:
                         self.connected = False
@@ -565,7 +570,7 @@ class GameClient:
                 break
             except BlockingIOError:
                 pass
-            except:
+            except Exception:
                 pass
     
     def _send(self, msg):
@@ -574,7 +579,7 @@ class GameClient:
             try:
                 data = json.dumps(msg).encode() + b"\n"
                 self.socket.sendall(data)
-            except:
+            except (BrokenPipeError, ConnectionResetError, OSError):
                 self.connected = False
 
 

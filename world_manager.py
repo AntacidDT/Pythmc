@@ -44,7 +44,7 @@ def list_worlds():
                     "blocks_placed": meta.get("blocks_placed", 0),
                     "world_settings": meta.get("world_settings", {}),
                 })
-            except:
+            except Exception:
                 pass
     # Sort by last played (most recent first)
     worlds.sort(key=lambda w: w["last_played"], reverse=True)
@@ -161,7 +161,7 @@ def load_chunk_data(world_name, cx, cz):
         return None
     try:
         return np.fromfile(chunk_file, dtype=np.uint8).reshape(16, 64, 16)
-    except:
+    except Exception:
         return None
 
 

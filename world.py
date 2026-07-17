@@ -349,8 +349,13 @@ class World:
         key = self.get_chunk_key(cx, cz)
         if key not in self.chunks:
             chunk = Chunk(cx, cz, self)
-            chunk.generate_terrain(self.seed)
-            chunk.build_mesh(self)
+            try:
+                chunk.generate_terrain(self.seed)
+                chunk.build_mesh(self)
+            except Exception as e:
+                print(f"Chunk ({cx},{cz}) gen failed: {e}")
+                import numpy as np
+                chunk.blocks[:] = STONE if 0 <= 20 < CHUNK_HEIGHT else 0
             self.chunks[key] = chunk
         return self.chunks[key]
     

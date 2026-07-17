@@ -177,7 +177,8 @@ class Explosion:
 
                         fb = FallingBlock(block, [bx, by + 0.5, bz], vel,
                                          damage=strength * 5.0)
-                        entity_manager.falling_blocks.append(fb)
+                        if entity_manager is not None:
+                            entity_manager.falling_blocks.append(fb)
 
         for cx, cz in self.affected_chunks:
             key = (cx, cz)

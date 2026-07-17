@@ -129,26 +129,26 @@ class VoiceChat:
             try:
                 self.capture_stream.stop_stream()
                 self.capture_stream.close()
-            except:
+            except Exception:
                 pass
         
         if self.playback_stream:
             try:
                 self.playback_stream.stop_stream()
                 self.playback_stream.close()
-            except:
+            except Exception:
                 pass
         
         if self.audio:
             try:
                 self.audio.terminate()
-            except:
+            except Exception:
                 pass
         
         if self.socket:
             try:
                 self.socket.close()
-            except:
+            except Exception:
                 pass
     
     def update_position(self, pos):
@@ -170,7 +170,7 @@ class VoiceChat:
             return True
         import pygame
         keys = pygame.key.get_pressed()
-        return keys.get(self.ptt_key, False)
+        return keys[self.ptt_key] if 0 <= self.ptt_key < len(keys) else False
     
     def _send_loop(self):
         """Capture and send audio."""
@@ -198,7 +198,7 @@ class VoiceChat:
                     # Still read to prevent buffer buildup
                     try:
                         self.capture_stream.read(CHUNK_SIZE, exception_on_overflow=False)
-                    except:
+                    except Exception:
                         pass
                 
                 time.sleep(CHUNK_SIZE / SAMPLE_RATE * 0.5)

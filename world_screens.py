@@ -98,12 +98,16 @@ class WorldSelectScreen:
     def _ensure_bg_world(self):
         if self.bg_world_loaded:
             return
-        from world import World
-        self.bg_world = World(seed=42)
-        for cx in range(-2, 3):
-            for cz in range(-2, 3):
-                self.bg_world.get_chunk(cx, cz)
-        self.bg_world_loaded = True
+        try:
+            from world import World
+            self.bg_world = World(seed=42)
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz)
+            self.bg_world_loaded = True
+        except Exception as e:
+            print(f"World select bg gen failed: {e}")
+            self.bg_world_loaded = True
 
     def refresh(self):
         self.worlds = list_worlds()
@@ -407,12 +411,16 @@ class WorldCreateScreen:
     def _ensure_bg_world(self):
         if self.bg_world_loaded:
             return
-        from world import World
-        self.bg_world = World(seed=42)
-        for cx in range(-2, 3):
-            for cz in range(-2, 3):
-                self.bg_world.get_chunk(cx, cz)
-        self.bg_world_loaded = True
+        try:
+            from world import World
+            self.bg_world = World(seed=42)
+            for cx in range(-2, 3):
+                for cz in range(-2, 3):
+                    self.bg_world.get_chunk(cx, cz)
+            self.bg_world_loaded = True
+        except Exception as e:
+            print(f"World create bg gen failed: {e}")
+            self.bg_world_loaded = True
 
     def _get_setting_items(self):
         """Get list of (key, display_name, value, default, range) for active tab."""

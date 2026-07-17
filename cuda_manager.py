@@ -14,6 +14,7 @@ Falls back to optimized NumPy/CPU when CUDA is unavailable.
 import numpy as np
 import math
 import time
+from constants import *
 
 # ─── CUDA Detection ─────────────────────────────────────────────────────────
 

@@ -1281,6 +1281,7 @@ class Game:
 
         elif self.loading_step == 2:
             # Done — transition to playing
+            init_gl()
             self.state = GameState.PLAYING
             self.mouse_captured = True
             pygame.mouse.set_visible(False)
@@ -1295,10 +1296,13 @@ class Game:
         """Draw animated loading screen with progress bar."""
         glDisable(GL_LIGHTING)
         glDisable(GL_DEPTH_TEST)
+        glDisable(GL_FOG)
         glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
         glLoadIdentity()
         glOrtho(0, SCREEN_W, 0, SCREEN_H, -1, 1)
         glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
         glLoadIdentity()
 
         # Dark background
@@ -1387,7 +1391,13 @@ class Game:
             f"Loading{dots}", "small", (0.8, 0.8, 0.8))
 
         glDisable(GL_BLEND)
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        glEnable(GL_TEXTURE_2D)
         glEnable(GL_DEPTH_TEST)
+        glEnable(GL_FOG)
         glEnable(GL_LIGHTING)
 
     def _safe_return_to_menu(self):

@@ -22,6 +22,7 @@ import math
 import time
 import os
 import random
+import numpy as np
 
 from constants import *
 from world import World, raycast

@@ -1,28 +1,18 @@
-# Pythmc - Minecraft Clone in Python
+# Pythmc - Minecraft clone written using Python3.
 
-A 3D voxel game built from scratch using Python and OpenGL. No traditional game engine— just raw OpenGL immediate mode, procedural textures, procedural sounds, and bundled dependencies.
+3D Voxel Survival and Creative game, with unique features.
 
-**Engine:** Pythkernel (specialized for Pythmc)
-**Works on school computers. No pip install needed.**
+*Engine*: Pythkernel (Specialized for Pythmc)
 
-## How to Run
+To run the game:
+In Windows, double click run.bat
+In Linux or MacOS: ./run.sh 
+Or just do python3 run.py
 
-### Windows
-Double-click `run.bat`
+Prerequisites: Python 3.8 or newer.
+Other necessary Numpy or OpenGL is bundled in the /lib folder.
 
-### Linux / Mac
-```bash
-./run.sh
-```
-
-### Or directly with Python
-```bash
-python3 run.py
-```
-
-**Requirements:** Python 3.8+. All dependencies (PyOpenGL, Pygame, NumPy, noise) are bundled in the `lib/` folder.
-
-## Controls
+*Controls* 
 
 | Key | Action |
 |-----|--------|
@@ -44,9 +34,58 @@ python3 run.py
 | Alt+F2 | Developer debug overlay |
 | Esc | Pause menu |
 
-## Features
+Updates:
+V1.3: The Structure Update
+brought small house generations, ruins, wells, gardens, structure builder tool, stone tower generation.
 
-### World
+V1.4: The Entity Update
+brought OBJ Models, per part rendering for animation, wander chase flee system, passive and hostile mobs, entity drops on death and spawn/despawn system.
+
+V1.5: The Sound Update
+brought 25 procedural sound effects, block breaking and placing sounds per material, footstep sounds per surface, entity sounds, player hurt/death sounds, UI click sounds.
+
+V1.6: The Multiplayer Update
+LAN Server Hosting, TCP+UDP Hosting, Player pos sync, Server discovery broadcast, Voice chat (proximity based UDP)
+
+V1.7: The Atmosphere Update
+Weather system, lightning with visual flash, ambient particles, star field and moon, day night cycle with sky gradient.
+
+V1.8: The Wires and Silicon Update.
+electronic factory structures with loot, circuit simulation engine, electronic components (resistors, caps, transistors, IC's, LEDs), Logic gates (AND, OR, NOT, NAND, NOR), NE555 Timer IC, Polarity system with explosions, 14+ electronic crafting recipes.
+
+V1.9: The General Update.
+Block drops, item pickup, hunger overhaul, food system, armor system, furnace smelting UI, diamond tier, player body rendering, third person camera, 80+ crafting recipes, animal drops, block tinting (per block color variation), developer debug (ALT F2), chunk loading optimization (Time budgeted, pre-generation), collision fixes, face orientation fixes, block placement validations (items can't be placed as blocks).
+
+V2.0: Settings and IO Update.
+Pixel font rendering, settings manager, io trigger system, world creation UI, stats display on world select, session stat tracking
+
+ABOUT IO SYSTEM;
+IO systems work by linking events in game (eg. player health on 5 heart) to terminal commands your OS can execute. Its set only by player, and in Multiplayer, a host can't execute commands on someone elses PC, only players can set it. Worlds have IO Toggles that let you switch off and on the IO system for that specific world.
+
+V2.1: Better Physics Update.
+Explosions system with radius, hardness based destruction, entity damage. falling block entities, with physics. fluid simulation, wind system (direction, gusts, affects fluids, particles and rain), bloc gravity (sand/gravel fall), tnt and obsidian, lava damage and swim pjysics. new biome blocks: podzol, mycelium, sponge, glowstone.
+
+V2.2: Natural Disasters Update
+15 natural disasters with biome specific triggers, chain event system, screen shake with intensity scaling, disastermanager for cooldowns and active disaster tracking, disasterrenderer for integ. with camera offset.
+
+V2.3: The CUDA Update.
+added support for CUDA/CuPy. NVIDIA GPU detection at boot, and if its detected and theres CUDA Toolkit then it activates, makes NVIDIA devices run potentially faster. GPU Terrain noise, cave carving, particle physics, fluid spread, Settings/GPU Tab for on off toggle, and safe cpu fallback when CUDA unavailable.
+
+V2.4: The Better Quality Update
+Outlined pixel font, character customization, 3d world background on all menu screens, first person hand, multiplayer name tags, sneaking mechanic, hud fix.
+
+V2.5: Stability and Optimizations
+crash fixes and null safety, fixed missing imports, try/expect crash reco, around all ensure world methods, around chunk gen with fallback, sound manager wrapped in try/except, memory cleanup, performance tuning.
+
+V2.6: Loading Screen, Music and Icon.
+Pythmc logo in taskbar, Animated loading screen, MIDI music player (37 of MIDI compositions + you can add/remove any you want in the music folder)
+Clothing system. 37 MIDI Tracks (Terra Serafina series)
+
+V2.7: UI Overhaul.
+main menu restructured, 4 vertical tabs (Play, Multiplayer, Customize, Settings), Each tab opens a submenu panel with relevant buttons, play -> singleplayer, structure builder. Multiplayer -> host game, join game. Customize -> Character. 
+Settings -> Settings, Credits, Quit Game.
+
+*World*
 - Perlin noise terrain generation
 - 6 biomes: Plains, Forest, Desert, Snow, Jungle, Ocean
 - Caves with 3D noise carving
@@ -56,7 +95,7 @@ python3 run.py
 - Chunk-based rendering with threaded generation
 - Save/load world system
 
-### Gameplay (Survival Mode)
+*Gameplay (survival mode)*
 - 40+ block types with procedural 16x16 textures
 - Block drops (ores drop materials, grass drops dirt, glass drops nothing)
 - Item pickup system with floating entities
@@ -70,38 +109,38 @@ python3 run.py
 - Diamond tools (best tier)
 - Mob drops (raw food, leather, bones, arrows)
 
-### Mobs
-- **Passive:** Cow, Sheep, Chicken (OBJ models with walk animation)
-- **Hostile:** Zombie, Skeleton (AI with chase/flee states)
+*Mobs*
+- *Passive:* Cow, Sheep, Chicken (OBJ models with walk animation)
+- *Hostile:* Zombie, Skeleton (AI with chase/flee states)
 - Item drops from blocks and mobs
 
-### Electronics (Unique to Pythmc)
+*Electronics (Unique to Pythmc)*
 - Resistors, Capacitors (polarized!), Transistors, ICs
 - NE555 timer, Logic gates (AND, OR, NOT, NAND, NOR)
 - LEDs, Batteries, Switches, Wires
 - Polarity system — wrong polarity causes explosions
 - Electronics Factories with loot
 
-### Multiplayer
+*Multiplayer*
 - LAN server hosting (TCP + UDP)
 - Player position sync
 - Server discovery broadcast
 - Proximity-based voice chat
 
-### Atmosphere
+*Atmosphere*
 - Day/night cycle with sky gradient
 - Weather: Rain, Thunder with lightning
 - Ambient particles: Dust, Fireflies, Mist
 - Stars and moon
 
-### Natural Disasters (V2.2)
+*Natural Disasters*
 - 15 disasters: Earthquake, Tornado, Tsunami, Sandstorm, Blizzard, Volcanic Eruption, Wildfire, Whirlpool, Meteor Strike, Sinkhole, Avalanche, Mudslide, Ice Storm, Flash Flood, Lightning Barrage
 - Biome-specific triggers (desert gets sandstorms, ocean gets tsunamis)
 - Chain events (earthquake can trigger tsunami, lightning can trigger wildfire)
 - Screen shake with intensity scaling
 - HUD warning with disaster name and timer
 
-### Better Quality (V2.4)
+*Better Quality*
 - Outlined pixel font (1px black border for readability)
 - Character customization (skin, shirt, pants, eyes color pickers)
 - 3D world background on all menu screens
@@ -110,13 +149,13 @@ python3 run.py
 - Sneaking mechanic (Shift on ground: slower speed, edge protection, crouch view)
 - Survival HUD fix (item name above hearts, no overlap)
 
-### Loading, Music & Icon (V2.6)
+*Loading, Music and Icon*
 - Game window icon (Pythmc logo)
 - Animated loading screen with progress bar, world name, and gameplay tips
 - Procedural ambient background music (layered pads, arpeggios, bass)
 - Music auto-plays during gameplay, loops seamlessly
 
-### Technical
+*Technical*
 - 25+ procedural sound effects (no audio files)
 - Procedural texture generation (no image files for blocks)
 - OBJ model loading with MTL materials
@@ -130,7 +169,7 @@ python3 run.py
   - GPU fluid spread simulation
   - Auto-detects NVIDIA GPU, on/off toggle in Settings > GPU
 
-## Architecture
+*Architecture*
 
 35 Python source files, ~16,000+ lines of code.
 
@@ -171,9 +210,9 @@ io_system.py            IO trigger system
 minecraft.py            Legacy single-file version
 ```
 
-## Credits
+*Credits*
 
-Made by **AntacidDT** — [github.com/AntacidDT](https://github.com/AntacidDT)
+Made by AntacidDT — [github.com/AntacidDT](https://github.com/AntacidDT)
 
 Built with:
 - Python 3

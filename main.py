@@ -3,7 +3,7 @@
 Pythmc - Minecraft Clone
 Main orchestrator - ties all systems together
 
-V2.6 - Loading Screen, Background Music, Game Icon
+V2.7 - UI Overhaul: Stone Buttons, Tabs, State Fixes
   Window icon, animated loading screen, procedural ambient music
 
 Controls:
@@ -315,6 +315,8 @@ class Game:
                 self.running = False
                 return
 
+            state_before = self.state
+
             if self.state == GameState.MENU:
                 result = self.main_menu.handle_event(event)
                 if result == "play":
@@ -436,6 +438,11 @@ class Game:
                 if result == "back":
                     self.state = GameState.MENU
 
+            # If state changed, stop processing remaining events this frame
+            # to prevent one input from triggering multiple transitions
+            if self.state != state_before:
+                break
+
     def _handle_game_events(self):
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -446,10 +453,24 @@ class Game:
                 self.keys[event.key] = True
 
                 if event.key == K_ESCAPE:
-                    self.state = GameState.PAUSED
-                    self.mouse_captured = False
-                    pygame.mouse.set_visible(True)
-                    pygame.event.set_grab(False)
+                    if self.crafting_ui.open:
+                        self.crafting_ui.open = False
+                        self.player.crafting_open = False
+                        self.mouse_captured = True
+                        pygame.mouse.set_visible(False)
+                        pygame.event.set_grab(True)
+                        self._center_mouse()
+                    elif self.furnace_ui.open:
+                        self.furnace_ui.open = False
+                        self.mouse_captured = True
+                        pygame.mouse.set_visible(False)
+                        pygame.event.set_grab(True)
+                        self._center_mouse()
+                    else:
+                        self.state = GameState.PAUSED
+                        self.mouse_captured = False
+                        pygame.mouse.set_visible(True)
+                        pygame.event.set_grab(False)
                     return
 
                 elif K_1 <= event.key <= K_9:
@@ -865,18 +886,21 @@ class Game:
         sneak_offset = 0.25 if self.player.sneaking else 0.0
         if self.player.third_person:
             # Third-person camera
-            cam_dist = 4.0
+            cam_dist = 5.0
             ry = math.radians(self.player.yaw)
             cam_x = self.player.pos[0] + math.sin(ry) * cam_dist + shake_x
-            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.0 - sneak_offset + shake_y
+            cam_y = self.player.pos[1] + PLAYER_HEIGHT + 1.5 - sneak_offset + shake_y
             cam_z = self.player.pos[2] + math.cos(ry) * cam_dist
             look = self.player.pos + np.array([0, PLAYER_HEIGHT * 0.8 - sneak_offset, 0])
             gluLookAt(cam_x, cam_y, cam_z, look[0], look[1], look[2], 0, 1, 0)
         else:
             eye = self.player.get_eye_pos()
-            look = eye + self.player.get_forward()
-            gluLookAt(eye[0] + shake_x, eye[1] + shake_y, eye[2],
-                      look[0] + shake_x, look[1] + shake_y, look[2], 0, 1, 0)
+            fwd = self.player.get_forward()
+            # Push camera slightly forward to avoid body geometry clipping into near plane
+            cam_offset = fwd * 0.15
+            look = eye + fwd
+            gluLookAt(eye[0] + cam_offset[0] + shake_x, eye[1] + cam_offset[1] + shake_y, eye[2] + cam_offset[2],
+                      look[0] + cam_offset[0] + shake_x, look[1] + cam_offset[1] + shake_y, look[2] + cam_offset[2], 0, 1, 0)
 
         # Sky
         if self.atmosphere:
@@ -910,9 +934,16 @@ class Game:
                 colors=get_character_colors()
             )
         else:
-            # First-person: draw body in a separate orthographic pass
-            # This avoids near-plane crashes from geometry at camera position
-            draw_first_person_body(self.player, SCREEN_W, SCREEN_H)
+            # First-person: draw body in 3D (head skipped, camera is the head)
+            draw_player_body(
+                self.player.pos[0], self.player.pos[1], self.player.pos[2],
+                self.player.yaw, self.player.pitch,
+                self.player.arm_swing, self.player.walk_cycle,
+                armor_slots=armor_dict,
+                is_sneaking=self.player.sneaking,
+                colors=get_character_colors(),
+                first_person=True
+            )
 
         # Entities and items
         self.entity_manager.draw()
@@ -1152,7 +1183,7 @@ class Game:
     def run(self):
         print("=" * 50)
         print("  Pythmc - Minecraft Clone")
-        print("  V2.6 - Loading Screen, Music & Icon")
+        print("  V2.7 - UI Overhaul: Stone Buttons, Tabs, State Fixes")
         print("=" * 50)
         print("  WASD - Move | Space - Jump | Shift - Sneak | Ctrl - Sprint")
         print("  F - Fly (Creative) | / - Terminal (if cheats enabled)")
@@ -1168,7 +1199,7 @@ class Game:
                 self._tick(dt)
             except Exception as e:
                 import traceback
-                print(f"\n[V2.6 CRASH] {type(e).__name__}: {e}")
+                print(f"\n[V2.7 CRASH] {type(e).__name__}: {e}")
                 traceback.print_exc()
                 if self.state == GameState.PLAYING and self.world:
                     print("  Attempting recovery to pause menu...")
@@ -1207,7 +1238,7 @@ class Game:
                 tp = "[TP]" if self.player.third_person else ""
                 mobs = f"Mobs:{len(self.entity_manager.entities) if self.entity_manager else 0}"
                 px, py, pz = self.player.pos if self.player is not None else (0, 0, 0)
-                caption = f"Pythmc V2.6 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
+                caption = f"Pythmc V2.7 | {mode} {fly}{sprint}{sneak}{water}{dead}{tp} | {self.fps_display} FPS | {mobs} | {px:.1f},{py:.1f},{pz:.1f}"
                 pygame.display.set_caption(caption)
 
         elif self.state == GameState.PAUSED:

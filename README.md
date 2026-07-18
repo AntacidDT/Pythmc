@@ -19,7 +19,7 @@ Other necessary Numpy or OpenGL is bundled in the /lib folder.
 | WASD | Move |
 | Mouse | Look around |
 | Space | Jump / Fly up / Swim up |
-| Shift | Sneak (ground) / Fly down |
+| Shift | Sneak (ground) / Sprint / Fly down |
 | Ctrl | Sprint (also prevents sneaking) |
 | Left Click | Break block / Attack |
 | Right Click | Place block / Use / Eat / Open furnace |
@@ -79,15 +79,15 @@ crash fixes and null safety, fixed missing imports, try/expect crash reco, aroun
 
 V2.6: Loading Screen, Music and Icon.
 Pythmc logo in taskbar, Animated loading screen, MIDI music player (37 of MIDI compositions + you can add/remove any you want in the music folder)
-Clothing system. 37 MIDI Tracks (Terra Serafina series)
+Clothing system. 37 MIDI Tracks (Terra Serafina series). First-person body rendering and clothing system.
 
 V2.7: UI Overhaul.
 main menu restructured, 4 vertical tabs (Play, Multiplayer, Customize, Settings), Each tab opens a submenu panel with relevant buttons, play -> singleplayer, structure builder. Multiplayer -> host game, join game. Customize -> Character. 
-Settings -> Settings, Credits, Quit Game.
+Settings -> Settings, Credits, Quit Game. Stone textured buttons (procedural 16x16 texture). Shared ui.py module. State management fixes (no double screen jumps, ESC closes crafting before pausing). Character preview lighting fix.
 
 *World*
 - Perlin noise terrain generation
-- 6 biomes: Plains, Forest, Desert, Snow, Jungle, Ocean
+- plains, forest, desert, snow, jungle and ocean.
 - Caves with 3D noise carving
 - Ore generation: Coal, Iron, Gold, Diamond (below Y=15)
 - 6 structures: Houses, Towers, Ruins, Wells, Gardens, Electronics Factories
@@ -152,8 +152,9 @@ Settings -> Settings, Credits, Quit Game.
 *Loading, Music and Icon*
 - Game window icon (Pythmc logo)
 - Animated loading screen with progress bar, world name, and gameplay tips
-- Procedural ambient background music (layered pads, arpeggios, bass)
-- Music auto-plays during gameplay, loops seamlessly
+- MIDI music player with 37 tracks (Terra Serafina series), pure Python parser
+- First-person body rendering (Steve-style arm + torso + legs)
+- Clothing system (tank top, t-shirt, long sleeve, shorts, long pants, shoes)
 
 *Technical*
 - 25+ procedural sound effects (no audio files)
@@ -171,7 +172,7 @@ Settings -> Settings, Credits, Quit Game.
 
 *Architecture*
 
-35 Python source files, ~16,000+ lines of code.
+36 Python source files, ~16,000+ lines of code.
 
 ```
 run.py                  Entry point
@@ -200,6 +201,8 @@ menu.py                 Main/pause/settings menus
 world_screens.py        World selection/creation
 multiplayer_screens.py  Host/join screens
 credits.py              Credits screen
+ui.py                   Shared UI components (stone buttons, tabs, panels)
+midi_player.py          MIDI file parser and synthesizer
 text_renderer.py        OpenGL text rendering
 pixel_font.py           Pixel font rendering
 obj_loader.py           OBJ model loading

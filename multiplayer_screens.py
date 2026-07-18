@@ -1,4 +1,4 @@
-"""Pythmc - Multiplayer Menu Screens"""
+"""Pythmc - Multiplayer Menu Screens (V2.7)"""
 
 import pygame
 from pygame.locals import *
@@ -7,70 +7,7 @@ import time
 from constants import *
 from text_renderer import text_renderer
 from network import multiplayer, find_servers, get_local_ip
-
-
-class Button:
-    def __init__(self, x, y, w, h, text, color=(0.25, 0.25, 0.35), hover_color=(0.35, 0.35, 0.5)):
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.text = text
-        self.color = color
-        self.hover_color = hover_color
-        self.hovered = False
-        self.hover_anim = 0
-
-    def contains(self, mx, my):
-        return self.x <= mx <= self.x + self.w and self.y <= my <= self.y + self.h
-
-    def draw(self):
-        target = 1.0 if self.hovered else 0.0
-        self.hover_anim += (target - self.hover_anim) * 0.15
-        r = self.color[0] + (self.hover_color[0] - self.color[0]) * self.hover_anim
-        g = self.color[1] + (self.hover_color[1] - self.color[1]) * self.hover_anim
-        b = self.color[2] + (self.hover_color[2] - self.color[2]) * self.hover_anim
-
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        
-        # Shadow
-        glColor4f(0, 0, 0, 0.3)
-        self._draw_rect(self.x + 2, self.y - 2, self.w, self.h)
-        
-        # Body
-        glColor3f(r * 0.5, g * 0.5, b * 0.5)
-        self._draw_rect(self.x, self.y - 1, self.w, self.h)
-        glColor3f(r, g, b)
-        self._draw_rect(self.x, self.y, self.w, self.h)
-        
-        # Highlight
-        glColor4f(1, 1, 1, 0.08 + self.hover_anim * 0.1)
-        self._draw_rect(self.x + 2, self.y + self.h - 6, self.w - 4, 4)
-        
-        # Border
-        glColor4f(1, 1, 1, 0.12 + self.hover_anim * 0.2)
-        glLineWidth(1)
-        glBegin(GL_LINE_LOOP)
-        glVertex2f(self.x, self.y)
-        glVertex2f(self.x + self.w, self.y)
-        glVertex2f(self.x + self.w, self.y + self.h)
-        glVertex2f(self.x, self.y + self.h)
-        glEnd()
-        
-        # Text
-        tc = (1.0, 1.0, 1.0) if self.hover_anim > 0.2 else (0.85, 0.85, 0.85)
-        text_renderer.draw_text_centered(self.x + self.w // 2, self.y + self.h // 2 - 8, 
-                                         self.text, "medium", tc)
-        glDisable(GL_BLEND)
-
-    def _draw_rect(self, x, y, w, h):
-        glBegin(GL_QUADS)
-        glVertex2f(x, y)
-        glVertex2f(x + w, y)
-        glVertex2f(x + w, y + h)
-        glVertex2f(x, y + h)
-        glEnd()
+from ui import Button, draw_panel, draw_separator, draw_title
 
 
 class HostGameScreen:

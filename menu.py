@@ -1,4 +1,4 @@
-"""Pythmc - Menu System with 3D world background and bitmap font"""
+"""Pythmc - Menu System with 3D world background and bitmap font (V2.7)"""
 
 import pygame
 from pygame.locals import *
@@ -11,74 +11,7 @@ from constants import *
 from text_renderer import text_renderer
 from settings_manager import settings_manager, DISPLAY_NAMES, RANGES, DEFAULTS
 from cuda_manager import get_cuda_status, is_cuda_available
-
-
-class Button:
-    def __init__(self, x, y, w, h, text, color=(0.25, 0.25, 0.35), hover_color=(0.35, 0.35, 0.5)):
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.text = text
-        self.color = color
-        self.hover_color = hover_color
-        self.hovered = False
-        self.hover_anim = 0
-
-    def contains(self, mx, my):
-        return self.x <= mx <= self.x + self.w and self.y <= my <= self.y + self.h
-
-    def draw(self):
-        target = 1.0 if self.hovered else 0.0
-        self.hover_anim += (target - self.hover_anim) * 0.15
-
-        r = self.color[0] + (self.hover_color[0] - self.color[0]) * self.hover_anim
-        g = self.color[1] + (self.hover_color[1] - self.color[1]) * self.hover_anim
-        b = self.color[2] + (self.hover_color[2] - self.color[2]) * self.hover_anim
-
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-
-        # Shadow
-        glColor4f(0, 0, 0, 0.4)
-        self._draw_rect(self.x + 3, self.y - 3, self.w, self.h)
-
-        # Button body (gradient effect)
-        glColor3f(r * 0.4, g * 0.4, b * 0.4)
-        self._draw_rect(self.x, self.y - 2, self.w, self.h)
-        glColor3f(r, g, b)
-        self._draw_rect(self.x, self.y, self.w, self.h)
-
-        # Top highlight
-        glColor4f(1, 1, 1, 0.1 + self.hover_anim * 0.12)
-        self._draw_rect(self.x + 2, self.y + self.h - 8, self.w - 4, 6)
-
-        # Border
-        glColor4f(1, 1, 1, 0.15 + self.hover_anim * 0.2)
-        glLineWidth(2)
-        glBegin(GL_LINE_LOOP)
-        glVertex2f(self.x, self.y)
-        glVertex2f(self.x + self.w, self.y)
-        glVertex2f(self.x + self.w, self.y + self.h)
-        glVertex2f(self.x, self.y + self.h)
-        glEnd()
-
-        # Text with shadow
-        text_color = (1.0, 1.0, 1.0) if self.hover_anim > 0.2 else (0.85, 0.85, 0.85)
-        text_w = text_renderer.get_text_width(self.text, size="medium")
-        text_x = self.x + (self.w - text_w) / 2
-        text_y = self.y + (self.h - 14) / 2
-        text_renderer.draw_text_shadow(text_x, text_y, self.text, size="medium", color=text_color)
-
-        glDisable(GL_BLEND)
-
-    def _draw_rect(self, x, y, w, h):
-        glBegin(GL_QUADS)
-        glVertex2f(x, y)
-        glVertex2f(x + w, y)
-        glVertex2f(x + w, y + h)
-        glVertex2f(x, y + h)
-        glEnd()
+from ui import Button, TabBar, draw_panel, draw_separator, draw_title
 
 
 TIPS = [
@@ -114,16 +47,37 @@ class MainMenu:
         cx = screen_w // 2
         cy = screen_h // 2
 
-        self.buttons = [
-            Button(cx - 150, cy + 100, 300, 40, "SINGLEPLAYER", (0.2, 0.55, 0.2), (0.3, 0.75, 0.3)),
-            Button(cx - 150, cy + 50, 300, 40, "HOST MULTIPLAYER", (0.15, 0.45, 0.55), (0.25, 0.6, 0.7)),
-            Button(cx - 150, cy, 300, 40, "JOIN MULTIPLAYER", (0.2, 0.4, 0.6), (0.3, 0.55, 0.75)),
-            Button(cx - 150, cy - 50, 300, 40, "CHARACTER", (0.45, 0.3, 0.55), (0.55, 0.4, 0.7)),
-            Button(cx - 150, cy - 100, 300, 40, "STRUCTURE BUILDER", (0.25, 0.45, 0.55), (0.35, 0.6, 0.7)),
-            Button(cx - 150, cy - 150, 300, 40, "SETTINGS", (0.25, 0.3, 0.5), (0.35, 0.4, 0.65)),
-            Button(cx - 150, cy - 200, 300, 40, "CREDITS", (0.3, 0.3, 0.45), (0.4, 0.4, 0.6)),
-            Button(cx - 150, cy - 250, 300, 40, "QUIT GAME", (0.5, 0.18, 0.18), (0.65, 0.25, 0.25)),
-        ]
+        # Vertical tab bar in the center of the screen
+        tab_names = ["Play", "Multiplayer", "Customize", "Settings"]
+        tab_w = 240
+        tab_h = 52
+        self.tabs = TabBar(cx, cy, tab_w, tab_h, tab_names, gap=10)
+
+        # Button sets per tab — offset to the right of the tabs
+        btn_w, btn_h = 260, 38
+        btn_x = cx + 160
+
+        self.tab_buttons = {
+            "Play": [
+                Button(btn_x, cy + 50, btn_w, btn_h, "SINGLEPLAYER"),
+                Button(btn_x, cy, btn_w, btn_h, "STRUCTURE BUILDER"),
+            ],
+            "Multiplayer": [
+                Button(btn_x, cy + 50, btn_w, btn_h, "HOST GAME"),
+                Button(btn_x, cy, btn_w, btn_h, "JOIN GAME"),
+            ],
+            "Customize": [
+                Button(btn_x, cy + 50, btn_w, btn_h, "CHARACTER"),
+            ],
+            "Settings": [
+                Button(btn_x, cy + 50, btn_w, btn_h, "SETTINGS"),
+                Button(btn_x, cy, btn_w, btn_h, "CREDITS"),
+                Button(btn_x, cy - 100, btn_w, btn_h, "QUIT GAME",
+                       (0.5, 0.18, 0.18), (0.65, 0.25, 0.25)),
+            ],
+        }
+
+        self._refresh_buttons()
 
         # 3D world background
         self.cam_yaw = 0
@@ -135,6 +89,11 @@ class MainMenu:
         self.tip_interval = 5.0
         self.tip_index = 0
         self.tip_alpha = 0.0
+
+    def _refresh_buttons(self):
+        self.all_buttons = []
+        for btns in self.tab_buttons.values():
+            self.all_buttons.extend(btns)
 
     def _ensure_world(self):
         if self.world_loaded:
@@ -154,12 +113,27 @@ class MainMenu:
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
             mx, my = event.pos
             my = self.screen_h - my
-            for btn in self.buttons:
+
+            # Check tabs first
+            tab_idx = self.tabs.handle_click(mx, my)
+            if tab_idx is not None:
+                sound_manager.play('click')
+                return None
+
+            # Check current tab's buttons
+            tab_name = self.tabs.active_name
+            for btn in self.tab_buttons.get(tab_name, []):
                 if btn.contains(mx, my):
                     sound_manager.play('click')
                     text = btn.text.lower().replace(" ", "_")
                     if text == "singleplayer":
                         return "play"
+                    elif text == "host_game":
+                        return "host_multiplayer"
+                    elif text == "join_game":
+                        return "join_multiplayer"
+                    elif text == "quit_game":
+                        return "quit"
                     return text
         return None
 
@@ -177,7 +151,9 @@ class MainMenu:
 
         mx, my = mouse_pos
         my = self.screen_h - my
-        for btn in self.buttons:
+        self.tabs.update(mx, my)
+        tab_name = self.tabs.active_name
+        for btn in self.tab_buttons.get(tab_name, []):
             btn.hovered = btn.contains(mx, my)
 
     def draw(self):
@@ -245,13 +221,7 @@ class MainMenu:
 
         # Title panel
         panel_y = self.screen_h - 210
-        glColor4f(0.03, 0.03, 0.08, 0.75)
-        glBegin(GL_QUADS)
-        glVertex2f(cx - 300, panel_y)
-        glVertex2f(cx + 300, panel_y)
-        glVertex2f(cx + 300, panel_y + 140)
-        glVertex2f(cx - 300, panel_y + 140)
-        glEnd()
+        draw_panel(cx - 300, panel_y, 600, 140, color=(0.03, 0.03, 0.08), alpha=0.75)
 
         # Title
         title_y = self.screen_h - 160
@@ -260,11 +230,31 @@ class MainMenu:
                                                  shadow=(0.0, 0.2, 0.0))
 
         # Version
-        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.6  -  MUSIC & LOADING", size="medium",
+        text_renderer.draw_text(cx - 290, panel_y + 8, "V2.7  -  UI OVERHAUL", size="medium",
                                 color=(0.45, 0.45, 0.5))
 
-        # Buttons
-        for btn in self.buttons:
+        # Tab bar
+        self.tabs.draw()
+
+        # Submenu panel behind the current tab's buttons
+        tab_name = self.tabs.active_name
+        btns = self.tab_buttons.get(tab_name, [])
+        if btns:
+            panel_x = btns[0].x - 15
+            panel_y = btns[0].y - 15
+            panel_w = btns[0].w + 30
+            panel_h = (btns[0].y + btns[0].h) - btns[-1].y + 30
+            draw_panel(panel_x, btns[-1].y - 15, panel_w, panel_h,
+                       color=(0.04, 0.04, 0.09), alpha=0.85)
+
+            # Tab name as section header
+            header_y = btns[-1].y + panel_h - 25
+            text_renderer.draw_text_centered(panel_x + panel_w // 2, header_y,
+                                             tab_name.upper(), size="medium",
+                                             color=(0.7, 0.8, 0.7))
+
+        # Current tab buttons
+        for btn in btns:
             btn.draw()
 
         # Rotating tips
@@ -353,36 +343,13 @@ class PauseMenu:
 
         # Panel
         pw, ph = 360, 270
-        glColor4f(0.05, 0.05, 0.1, 0.92)
-        glBegin(GL_QUADS)
-        glVertex2f(cx - pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy + ph // 2)
-        glVertex2f(cx - pw // 2, cy + ph // 2)
-        glEnd()
-
-        # Border
-        glColor4f(0.3, 0.3, 0.4, 0.5)
-        glLineWidth(2)
-        glBegin(GL_LINE_LOOP)
-        glVertex2f(cx - pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy + ph // 2)
-        glVertex2f(cx - pw // 2, cy + ph // 2)
-        glEnd()
+        draw_panel(cx - pw // 2, cy - ph // 2, pw, ph, color=(0.05, 0.05, 0.1), alpha=0.92)
 
         # Title
-        text_renderer.draw_text_centered_shadow(cx, cy + ph // 2 - 50, "GAME PAUSED", size="medium",
-                                                color=(1.0, 1.0, 1.0),
-                                                shadow=(0.2, 0.2, 0.2))
+        draw_title(cx, cy + ph // 2 - 50, "GAME PAUSED")
 
         # Separator
-        glColor4f(0.3, 0.3, 0.4, 0.4)
-        glLineWidth(1)
-        glBegin(GL_LINES)
-        glVertex2f(cx - pw // 2 + 20, cy + ph // 2 - 60)
-        glVertex2f(cx + pw // 2 - 20, cy + ph // 2 - 60)
-        glEnd()
+        draw_separator(cx - pw // 2 + 20, cy + ph // 2 - 60, cx + pw // 2 - 20)
 
         # Buttons
         for btn in self.buttons:
@@ -640,36 +607,13 @@ class SettingsMenu:
 
         # Panel
         pw, ph = 420, 620
-        glColor4f(0.05, 0.05, 0.1, 0.90)
-        glBegin(GL_QUADS)
-        glVertex2f(cx - pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy + ph // 2)
-        glVertex2f(cx - pw // 2, cy + ph // 2)
-        glEnd()
-
-        # Border
-        glColor4f(0.3, 0.3, 0.4, 0.5)
-        glLineWidth(2)
-        glBegin(GL_LINE_LOOP)
-        glVertex2f(cx - pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy - ph // 2)
-        glVertex2f(cx + pw // 2, cy + ph // 2)
-        glVertex2f(cx - pw // 2, cy + ph // 2)
-        glEnd()
+        draw_panel(cx - pw // 2, cy - ph // 2, pw, ph, color=(0.05, 0.05, 0.1), alpha=0.90)
 
         # Title
-        text_renderer.draw_text_centered_shadow(cx, cy + ph // 2 - 45, "SETTINGS", size="medium",
-                                                color=(1.0, 1.0, 1.0),
-                                                shadow=(0.2, 0.2, 0.2))
+        draw_title(cx, cy + ph // 2 - 45, "SETTINGS")
 
         # Separator
-        glColor4f(0.3, 0.3, 0.4, 0.4)
-        glLineWidth(1)
-        glBegin(GL_LINES)
-        glVertex2f(cx - pw // 2 + 20, cy + ph // 2 - 55)
-        glVertex2f(cx + pw // 2 - 20, cy + ph // 2 - 55)
-        glEnd()
+        draw_separator(cx - pw // 2 + 20, cy + ph // 2 - 55, cx + pw // 2 - 20)
 
         # Tab buttons
         for btn in self.tab_buttons:
@@ -864,7 +808,7 @@ class CharacterCustomizationScreen:
     def draw(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glEnable(GL_DEPTH_TEST)
-        glClearColor(0.06, 0.06, 0.1, 1.0)
+        glClearColor(0.12, 0.14, 0.22, 1.0)
 
         # 3D character preview on left half
         glMatrixMode(GL_PROJECTION)
@@ -883,16 +827,20 @@ class CharacterCustomizationScreen:
 
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
+        glEnable(GL_LIGHT1)
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-        glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.5, 1.0))
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.9, 0.85, 0.8, 1.0))
+        glLightfv(GL_LIGHT0, GL_AMBIENT, (0.5, 0.5, 0.55, 1.0))
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, (1.0, 0.95, 0.9, 1.0))
         glLightfv(GL_LIGHT0, GL_POSITION, (0.5, 1.0, 0.3, 0.0))
+        glLightfv(GL_LIGHT1, GL_AMBIENT, (0.0, 0.0, 0.0, 1.0))
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, (0.35, 0.4, 0.45, 1.0))
+        glLightfv(GL_LIGHT1, GL_POSITION, (-0.5, 0.3, -0.7, 0.0))
 
         glViewport(0, 0, self.screen_w // 2, self.screen_h)
 
         glDisable(GL_LIGHTING)
-        glColor3f(0.3, 0.5, 0.3)
+        glColor3f(0.25, 0.45, 0.25)
         glBegin(GL_QUADS)
         glVertex3f(-3, 0, -3)
         glVertex3f(3, 0, -3)
@@ -907,6 +855,7 @@ class CharacterCustomizationScreen:
         draw_player_body(0, 0, 0, 0, 0, 0, walk, colors=colors)
 
         glDisable(GL_LIGHTING)
+        glDisable(GL_LIGHT1)
         glPopMatrix()
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()

@@ -366,9 +366,10 @@ class HUD:
         glDisable(GL_BLEND)
 
 
-def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None):
+def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=None, is_sneaking=False, colors=None, first_person=False):
     """Draw player body with head, body, arms, legs and armor overlay.
-    Supports clothing styles: upper_style, lower_style, shoe_style."""
+    Supports clothing styles: upper_style, lower_style, shoe_style.
+    first_person=True skips the head (camera is the head) to avoid near-plane crash."""
     glPushMatrix()
     glTranslatef(x, y, z)
     glRotatef(yaw, 0, 1, 0)
@@ -403,31 +404,37 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
         glColor3f(*color)
         glBegin(GL_QUADS)
         # Front
+        glNormal3f(0, 0, -1)
         glVertex3f(x1, y1, z1)
         glVertex3f(x2, y1, z1)
         glVertex3f(x2, y2, z1)
         glVertex3f(x1, y2, z1)
         # Back
+        glNormal3f(0, 0, 1)
         glVertex3f(x2, y1, z2)
         glVertex3f(x1, y1, z2)
         glVertex3f(x1, y2, z2)
         glVertex3f(x2, y2, z2)
         # Top
+        glNormal3f(0, 1, 0)
         glVertex3f(x1, y2, z1)
         glVertex3f(x2, y2, z1)
         glVertex3f(x2, y2, z2)
         glVertex3f(x1, y2, z2)
         # Bottom
+        glNormal3f(0, -1, 0)
         glVertex3f(x1, y1, z2)
         glVertex3f(x2, y1, z2)
         glVertex3f(x2, y1, z1)
         glVertex3f(x1, y1, z1)
         # Right
+        glNormal3f(1, 0, 0)
         glVertex3f(x2, y1, z1)
         glVertex3f(x2, y1, z2)
         glVertex3f(x2, y2, z2)
         glVertex3f(x2, y2, z1)
         # Left
+        glNormal3f(-1, 0, 0)
         glVertex3f(x1, y1, z2)
         glVertex3f(x1, y1, z1)
         glVertex3f(x1, y2, z1)
@@ -495,10 +502,12 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     # Sneak offset: lower entire body slightly
     sneak_y = -0.2 if is_sneaking else 0.0
     
-    head_y = 1.62 + sneak_y
-    body_y = 0.87 + sneak_y
-    arm_y = 1.12 + sneak_y
-    leg_y = 0.0
+    # Steve proportions: 2 blocks total height
+    # Legs: 0.0 - 0.75, Body: 0.75 - 1.50, Head: 1.50 - 2.00
+    leg_y = 0.0 + sneak_y
+    body_y = 0.75 + sneak_y
+    arm_y = 0.75 + sneak_y
+    head_y = 1.50 + sneak_y
     
     # Left leg
     _draw_leg(1)
@@ -517,41 +526,43 @@ def draw_player_body(x, y, z, yaw, pitch, arm_swing, walk_cycle, armor_slots=Non
     # Right arm
     _draw_arm(-1)
     
-    # Head
-    head_y_pos = head_y
-    _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
-    _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
-    
-    # Eyes
-    eye_y = head_y_pos + head_h * 0.55
-    eye_z = -head_w/2 - 0.001
-    glColor3f(1, 1, 1)
-    glBegin(GL_QUADS)
-    glVertex3f(-0.15, eye_y, eye_z)
-    glVertex3f(-0.05, eye_y, eye_z)
-    glVertex3f(-0.05, eye_y + 0.08, eye_z)
-    glVertex3f(-0.15, eye_y + 0.08, eye_z)
-    glVertex3f(0.05, eye_y, eye_z)
-    glVertex3f(0.15, eye_y, eye_z)
-    glVertex3f(0.15, eye_y + 0.08, eye_z)
-    glVertex3f(0.05, eye_y + 0.08, eye_z)
-    glEnd()
-    
-    # Pupils
-    glColor3f(*eye_color)
-    pupil_z = eye_z - 0.001
-    glBegin(GL_QUADS)
-    glVertex3f(-0.13, eye_y + 0.01, pupil_z)
-    glVertex3f(-0.07, eye_y + 0.01, pupil_z)
-    glVertex3f(-0.07, eye_y + 0.06, pupil_z)
-    glVertex3f(-0.13, eye_y + 0.06, pupil_z)
-    glVertex3f(0.07, eye_y + 0.01, pupil_z)
-    glVertex3f(0.13, eye_y + 0.01, pupil_z)
-    glVertex3f(0.13, eye_y + 0.06, pupil_z)
-    glVertex3f(0.07, eye_y + 0.06, pupil_z)
-    glEnd()
+    # Head (skip in first-person: camera IS the head, geometry would be behind near plane)
+    if not first_person:
+        head_y_pos = head_y
+        _draw_cube(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, skin)
+        _draw_armor_overlay(-head_w/2, head_y_pos, -head_w/2, head_w/2, head_y_pos + head_h, head_w/2, 0)
+        
+        # Eyes
+        eye_y = head_y_pos + head_h * 0.55
+        eye_z = -head_w/2 - 0.001
+        glColor3f(1, 1, 1)
+        glBegin(GL_QUADS)
+        glVertex3f(-0.15, eye_y, eye_z)
+        glVertex3f(-0.05, eye_y, eye_z)
+        glVertex3f(-0.05, eye_y + 0.08, eye_z)
+        glVertex3f(-0.15, eye_y + 0.08, eye_z)
+        glVertex3f(0.05, eye_y, eye_z)
+        glVertex3f(0.15, eye_y, eye_z)
+        glVertex3f(0.15, eye_y + 0.08, eye_z)
+        glVertex3f(0.05, eye_y + 0.08, eye_z)
+        glEnd()
+        
+        # Pupils
+        glColor3f(*eye_color)
+        pupil_z = eye_z - 0.001
+        glBegin(GL_QUADS)
+        glVertex3f(-0.13, eye_y + 0.01, pupil_z)
+        glVertex3f(-0.07, eye_y + 0.01, pupil_z)
+        glVertex3f(-0.07, eye_y + 0.06, pupil_z)
+        glVertex3f(-0.13, eye_y + 0.06, pupil_z)
+        glVertex3f(0.07, eye_y + 0.01, pupil_z)
+        glVertex3f(0.13, eye_y + 0.01, pupil_z)
+        glVertex3f(0.13, eye_y + 0.06, pupil_z)
+        glVertex3f(0.07, eye_y + 0.06, pupil_z)
+        glEnd()
 
     glPopMatrix()
+    glNormal3f(0, 0, 1)
 
 
 def draw_first_person_body(player, screen_w, screen_h):

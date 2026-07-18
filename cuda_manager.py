@@ -178,8 +178,8 @@ def _gpu_terrain(chunk, seed, cp):
 
     heights_np = cp.asnumpy(heights)
     biome_ids_np = cp.asnumpy(biome_ids)
-    xx_np = xx_flat.astype(np.int32)
-    zz_np = zz_flat.astype(np.int32)
+    xx_np = xx_flat.astype(np.int64)
+    zz_np = zz_flat.astype(np.int64)
 
     # Fill blocks using the computed heights (CPU - block assignment is branching-heavy)
     sea_level = 19
@@ -232,6 +232,7 @@ def _gpu_terrain(chunk, seed, cp):
 
 def _fast_random(x, y, z, salt):
     """Fast deterministic hash for ore placement (same as world.py pattern)."""
+    x = int(x); y = int(y); z = int(z); salt = int(salt)
     h = (x * 374761393 + y * 668265263 + z * 1274126177 + salt * 7919) & 0xFFFFFFFF
     h = ((h >> 13) ^ h) * 1274126177
     h = (h >> 16) ^ h
